@@ -42,65 +42,51 @@ try {
     Start-Process $url
 
     while ($listener.IsListening) {
-        try {
-            $context = $listener.GetContext()
-        } catch {
-            break
+        $context = $listener.GetContext()
+        $request = $context.Request
+        $response = $context.Response
+
+        $path = $request.Url.LocalPath
+        if ($path -eq "/" -or $path -eq "") {
+            $path = "/index.html"
         }
 
-        try {
-            $request = $context.Request
-            $response = $context.Response
+        $filePath = Join-Path $folder $path.TrimStart('/')
 
-            $path = $request.Url.LocalPath
-            if ($path -eq "/" -or $path -eq "") {
-                $path = "/index.html"
+        if (Test-Path $filePath -PathType Leaf) {
+            $ext = [System.IO.Path]::GetExtension($filePath).ToLower()
+            $contentType = "text/plain"
+
+            switch ($ext) {
+                ".html" { $contentType = "text/html; charset=utf-8" }
+                ".css"  { $contentType = "text/css; charset=utf-8" }
+                ".js"   { $contentType = "application/javascript; charset=utf-8" }
+                ".json" { $contentType = "application/json; charset=utf-8" }
+                ".svg"  { $contentType = "image/svg+xml" }
+                ".png"  { $contentType = "image/png" }
+                ".jpg"  { $contentType = "image/jpeg" }
+                ".jpeg" { $contentType = "image/jpeg" }
+                ".webp" { $contentType = "image/webp" }
+                ".ico"  { $contentType = "image/x-icon" }
+                ".woff2"{ $contentType = "font/woff2" }
+                ".glb"  { $contentType = "model/gltf-binary" }
+                ".gltf" { $contentType = "model/gltf+json" }
+                ".bin"  { $contentType = "application/octet-stream" }
             }
 
-            $filePath = Join-Path $folder $path.TrimStart('/')
-
-            if (Test-Path $filePath -PathType Leaf) {
-                $ext = [System.IO.Path]::GetExtension($filePath).ToLower()
-                $contentType = "text/plain"
-
-                switch ($ext) {
-                    ".html" { $contentType = "text/html; charset=utf-8" }
-                    ".css"  { $contentType = "text/css; charset=utf-8" }
-                    ".js"   { $contentType = "application/javascript; charset=utf-8" }
-                    ".json" { $contentType = "application/json; charset=utf-8" }
-                    ".svg"  { $contentType = "image/svg+xml" }
-                    ".png"  { $contentType = "image/png" }
-                    ".gif"  { $contentType = "image/gif" }
-                    ".jpg"  { $contentType = "image/jpeg" }
-                    ".jpeg" { $contentType = "image/jpeg" }
-                    ".webp" { $contentType = "image/webp" }
-                    ".ico"  { $contentType = "image/x-icon" }
-                    ".woff" { $contentType = "font/woff" }
-                    ".woff2"{ $contentType = "font/woff2" }
-                    ".mp3"  { $contentType = "audio/mpeg" }
-                    ".wav"  { $contentType = "audio/wav" }
-                    ".glb"  { $contentType = "model/gltf-binary" }
-                    ".gltf" { $contentType = "model/gltf+json" }
-                    ".bin"  { $contentType = "application/octet-stream" }
-                }
-
-                $bytes = [System.IO.File]::ReadAllBytes($filePath)
-                $response.ContentType = $contentType
-                $response.ContentLength64 = $bytes.Length
-                $response.AddHeader("Access-Control-Allow-Origin", "*")
-                $response.AddHeader("Cross-Origin-Resource-Policy", "cross-origin")
-                $response.OutputStream.Write($bytes, 0, $bytes.Length)
-            } else {
-                $response.StatusCode = 404
-                $msg = [System.Text.Encoding]::UTF8.GetBytes("404 Not Found: $path")
-                $response.ContentLength64 = $msg.Length
-                $response.OutputStream.Write($msg, 0, $msg.Length)
-            }
-            $response.Close()
-        } catch {
-            # Client closed the tab, refreshed (F5), or aborted an in-flight request
-            try { $context.Response.Abort() } catch {}
+            $bytes = [System.IO.File]::ReadAllBytes($filePath)
+            $response.ContentType = $contentType
+            $response.ContentLength64 = $bytes.Length
+            $response.AddHeader("Access-Control-Allow-Origin", "*")
+            $response.AddHeader("Cross-Origin-Resource-Policy", "cross-origin")
+            $response.OutputStream.Write($bytes, 0, $bytes.Length)
+        } else {
+            $response.StatusCode = 404
+            $msg = [System.Text.Encoding]::UTF8.GetBytes("404 Not Found: $path")
+            $response.ContentLength64 = $msg.Length
+            $response.OutputStream.Write($msg, 0, $msg.Length)
         }
+        $response.Close()
     }
 } catch {
     Write-Host "Server encountered an error: $_" -ForegroundColor Red

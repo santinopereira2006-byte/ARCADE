@@ -574,6 +574,12 @@ class ArcadeApp {
     modalBody.innerHTML = AuthManager.renderLoginGateHTML();
     modal.classList.add("active");
 
+    // Initialize React Bits effects inside modal
+    try {
+      GradientText.initAll(modalBody);
+      SpotlightCard.initAll(modalBody);
+    } catch (_) { }
+
     // Focus passphrase input
     const passInput = document.getElementById("adminPassphraseInput");
     if (passInput) {

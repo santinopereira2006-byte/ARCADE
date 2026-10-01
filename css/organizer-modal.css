@@ -1,0 +1,595 @@
+/* ============================================================
+   ORGANIZER MASTER TERMINAL MODAL - CYBERPUNK ESPORTS THEME
+   ============================================================ */
+
+#organizerModal.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(3, 5, 12, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  z-index: 100000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#organizerModal.modal-overlay.active {
+  display: flex;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#organizerModalBody {
+  width: 100%;
+  max-width: 1060px;
+  margin: auto;
+  position: relative;
+}
+
+/* Console Card Container */
+.org-console-card {
+  position: relative;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 32px 36px 36px;
+  background: rgba(11, 15, 28, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.8), 0 0 40px rgba(56, 189, 248, 0.12);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  box-sizing: border-box;
+}
+
+/* Custom Scrollbar for Terminal */
+.org-console-card::-webkit-scrollbar {
+  width: 6px;
+}
+.org-console-card::-webkit-scrollbar-track {
+  background: rgba(5, 8, 16, 0.6);
+  border-radius: 8px;
+}
+.org-console-card::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.3);
+  border-radius: 8px;
+}
+.org-console-card::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.5);
+}
+
+/* Accent Neon Gradient Border Top */
+.org-console-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: linear-gradient(90deg, #38bdf8 0%, #818cf8 50%, #f43f5e 100%);
+  z-index: 10;
+  border-radius: 20px 20px 0 0;
+}
+
+/* Header */
+.org-header {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.org-header .game-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  margin-bottom: 10px;
+}
+
+.org-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: clamp(22px, 2.5vw, 26px);
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+/* Close Button */
+.org-header .btn-close-modal {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  color: #94a3b8;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 15;
+}
+
+.org-header .btn-close-modal:hover {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: #f43f5e;
+  color: #ffffff;
+  transform: rotate(90deg) scale(1.08);
+}
+
+/* Dashboard Control Panels (2-Column Grid) */
+.org-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.org-dashboard-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Control Section Container */
+.org-section {
+  position: relative;
+  background: rgba(14, 19, 34, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 16px 18px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.org-section:hover {
+  border-color: rgba(56, 189, 248, 0.22);
+}
+
+.org-section.full-width {
+  grid-column: 1 / -1;
+}
+
+.org-sec-lbl {
+  display: block;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: #38bdf8;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.org-section-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.org-section-heading-row .org-sec-lbl {
+  margin-bottom: 0;
+}
+
+.org-live-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+/* Active Team Bar */
+.org-team-active-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.active-team-pill {
+  font-family: 'Poppins', sans-serif;
+  font-size: 13px;
+  color: #e2e8f0;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 10px;
+  padding: 8px 14px;
+  flex: 1;
+  min-width: 240px;
+}
+
+.active-team-pill strong {
+  color: #38bdf8;
+}
+
+/* Created Team Notification Banner */
+.org-created-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-radius: 12px;
+}
+
+.org-created-label {
+  font-family: 'Poppins', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #4ade80;
+  text-transform: uppercase;
+}
+
+.org-created-banner code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #4ade80;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Team Roster List */
+.org-roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 10px;
+  background: rgba(5, 8, 16, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.org-roster-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 110px 90px 80px 32px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 12.5px;
+}
+
+.org-roster-team {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.org-roster-team strong {
+  color: #f8fafc;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-roster-team span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.org-team-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  padding: 3px 8px;
+  border-radius: 5px;
+  text-align: center;
+}
+
+.org-status {
+  font-family: 'Poppins', sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.status-in-game {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.status-completed {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.status-registered {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.org-roster-score {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fbbf24;
+  text-align: right;
+}
+
+.btn-org-delete {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  transition: all 0.2s ease;
+}
+
+.btn-org-delete:hover {
+  color: #f43f5e;
+  background: rgba(244, 63, 94, 0.15);
+}
+
+.org-empty-state {
+  padding: 20px;
+  text-align: center;
+  color: #64748b;
+  font-family: 'Poppins', sans-serif;
+  font-size: 12.5px;
+}
+
+/* Scoreboard Snapshot 3-Card Strip */
+.org-score-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.org-score-strip span {
+  padding: 12px;
+  background: rgba(5, 8, 16, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  text-align: center;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+.org-score-strip b {
+  display: block;
+  font-family: 'Poppins', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: #38bdf8;
+  margin-bottom: 2px;
+}
+
+/* Control Button Groups */
+.org-btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Core Action Buttons */
+.btn-org-action {
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 9px 14px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  color: #f1f5f9;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.btn-org-action:hover {
+  transform: translateY(-1px);
+  border-color: rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.1);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.15);
+}
+
+.btn-org-action:active {
+  transform: translateY(0);
+}
+
+.btn-org-action.neon-cyan {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.btn-org-action.neon-cyan:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  box-shadow: 0 4px 16px rgba(56, 189, 248, 0.25);
+}
+
+.btn-org-action.neon-amber {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.btn-org-action.neon-amber:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: #fbbf24;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
+}
+
+.btn-org-action.neon-red {
+  color: #fda4af;
+  background: rgba(244, 63, 94, 0.12);
+  border-color: rgba(244, 63, 94, 0.35);
+}
+
+.btn-org-action.neon-red:hover {
+  background: rgba(244, 63, 94, 0.22);
+  border-color: #f43f5e;
+  box-shadow: 0 4px 16px rgba(244, 63, 94, 0.3);
+}
+
+/* Sudden Death Launcher Button */
+#orgBtnLaunchTieBreaker.btn-primary-gaming {
+  width: 100%;
+  padding: 13px 20px;
+  background: linear-gradient(135deg, #f43f5e 0%, #ec4899 50%, #38bdf8 100%);
+  border: none;
+  border-radius: 12px;
+  color: #ffffff;
+  font-family: 'Poppins', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(244, 63, 94, 0.35) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+#orgBtnLaunchTieBreaker.btn-primary-gaming:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 26px rgba(236, 72, 153, 0.45) !important;
+}
+
+/* Secret Master Answer Keys Accordion */
+.org-details-box {
+  background: rgba(5, 8, 16, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.org-summary-lbl {
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fbbf24;
+  letter-spacing: 0.8px;
+  outline: none;
+  user-select: none;
+}
+
+.answer-keys-content {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+
+.answer-keys-content h4 {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #38bdf8;
+  margin: 12px 0 6px;
+  text-transform: uppercase;
+}
+
+.answer-keys-content h4:first-child {
+  margin-top: 0;
+}
+
+.answer-keys-content ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.answer-keys-content li {
+  margin-bottom: 4px;
+}
+
+.answer-keys-content strong {
+  color: #ffffff;
+}
+
+/* Admin Session Footer */
+.admin-session-info {
+  font-family: 'Poppins', sans-serif;
+  font-size: 12.5px;
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-session-info strong {
+  color: #4ade80;
+}
+
+@media (max-width: 768px) {
+  .org-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  .org-console-card {
+    padding: 24px 20px;
+  }
+}

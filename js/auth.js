@@ -154,12 +154,14 @@ export class AuthManager {
   static renderLoginGateHTML() {
     return `
       <div class="modal-cyber-glow"></div>
-      <div class="auth-gate-card">
+      <div class="auth-gate-card spotlight-card" data-spotlight data-spotlight-color="rgba(244, 63, 94, 0.2)">
         <div class="auth-header">
-          <span class="game-badge neon-red">RESTRICTED ACCESS</span>
-          <h2 class="auth-title glitch-title" data-text="ADMIN LOGIN">ADMIN LOGIN</h2>
+          <span class="game-badge neon-red" data-gradient-text data-gradient-border="true" data-gradient-colors='["#f43f5e", "#ec4899", "#818cf8", "#f43f5e"]' data-gradient-speed="3">RESTRICTED ACCESS</span>
+          <h2 class="auth-title glitch-title" data-text="ADMIN LOGIN">
+            <span data-gradient-text data-gradient-colors='["#ffffff", "#fda4af", "#f43f5e", "#ffffff"]' data-gradient-speed="4">ADMIN LOGIN</span>
+          </h2>
           <p class="auth-sub">Enter the organizer passphrase to access the admin console, leaderboard, and tournament controls.</p>
-          <button type="button" class="btn-close-modal" id="btnCloseAuthModal">✕</button>
+          <button type="button" class="btn-close-modal" id="btnCloseAuthModal" title="Close modal">✕</button>
         </div>
 
         <form id="adminLoginForm" class="auth-form" autocomplete="off">
@@ -173,7 +175,7 @@ export class AuthManager {
                 placeholder="Enter admin passphrase..." 
                 required 
                 autofocus 
-                maxlength="32"
+                maxlength="32" 
                 autocomplete="off"
               />
               <button type="button" class="btn-toggle-pass" id="btnTogglePassVisibility" title="Show/hide passphrase">
@@ -183,7 +185,7 @@ export class AuthManager {
           </div>
 
           <div class="auth-error-msg" id="authErrorMsg" style="display: none;">
-            ❌ INCORRECT PASSPHRASE — ACCESS DENIED
+            <span>❌</span> <span>INCORRECT PASSPHRASE — ACCESS DENIED</span>
           </div>
 
           <div class="auth-actions-row">
