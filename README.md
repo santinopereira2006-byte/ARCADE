@@ -34,7 +34,7 @@ This is a file and content integrity check, not a browser automation or gameplay
 
 ## Publish
 
-The project is a static site and includes `vercel.json` for Vercel hosting. Import this directory as a project or deploy it with the Vercel CLI; no build command or environment variables are currently required. Other static web hosts can serve the project root as-is. Keep the folders and paths intact, including `assets/`, `css/`, `js/`, and the character model folders, because the app loads these files by relative URL.
+The project is a static site and includes `vercel.json` for Vercel hosting. Import this directory as a project or deploy it with the Vercel CLI; no build command or environment variables are currently required. Other static web hosts can serve the project root as-is. Keep the folders and paths intact, including `assets/`, `css/`, `js/`, and `models/`, because the app loads these files by relative URL.
 
 Google Fonts are requested from `fonts.googleapis.com` and `fonts.gstatic.com`; if those services are unavailable, the browser uses fallback fonts. All game logic and content are local to this project.
 
@@ -65,10 +65,10 @@ The passphrase and all app code are delivered to the browser. The passphrase is 
 ## Project layout
 
 ```text
-index.html                 App entry point and screens
-css/                       App, coding IDE, and reveal styles
-css/ui-refresh.css         Current interface palette, layout, and responsive refinements
-js/app.js                  App controller and round flow
+index.html                 Tournament app entry point and round screens
+retro.html                 Retro Blast 3D arcade machine standalone launcher
+css/                       Cyberpunk and game mode stylesheets (arcade-style, blackout, retro, etc.)
+js/app.js                  App controller and round flow orchestration
 js/auth.js                 Browser-side organizer and participant sessions
 js/leaderboard.js          Browser-local roster and leaderboard storage
 js/organizer.js            Team management and organizer console
@@ -77,14 +77,12 @@ js/timer.js                Round timers
 js/ui.js                   Screen and results rendering
 js/data/                   Questions, challenges, and tie-breaker data
 js/games/                  Rendering and interaction for each round
-assets/                    Game images and other artwork
-pikachu/                   Pikachu model and textures
-mario-mini/                Mario model and textures
-optimus_prime/             Optimus Prime model and textures
-megatron/                  Megatron model and textures
-hulk/                      Hulk model and textures
-masterchief/               Master Chief model and textures
-start-arcade.ps1           Local HTTP server launcher
+js/room/                   3D Arcade Arena lobby scene, physics, and decor
+js/vendor/                 Vendored Three.js library and loaders
+assets/                    Game artwork, silhouettes, and UI badges
+models/                    Organized 3D glTF/GLB models for arena and Scale Wars
+start-arcade.bat           Windows double-click local server launcher
+start-arcade.ps1           Zero-dependency local HTTP server launcher
 verify-arcade.ps1          File and content integrity check
 vercel.json                Vercel static hosting configuration
 ```
