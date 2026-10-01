@@ -17,20 +17,20 @@ import { addBaseLights, addCornerGlow, addNeonAccents } from "./lighting.js";
 import { RoomDecor } from "./decor.js";
 import { LeaderboardManager } from "../leaderboard.js";
 
-const ROOM_URL = "room-blank/source/Room%20house.gltf";
+const ROOM_URL = "models/room-blank/source/Room%20house.gltf";
 
 const MACHINE_MODELS = [
   // `forward` = the model's authored screen-facing direction in XZ, measured
   // from yaw-sweep contact sheets (only the pixel rig names its screen node).
-  { id: "pixel", url: "arcade_machine_-_pixel-art_low-poly/scene.gltf", forward: [0, 1] },
-  { id: "cabA", url: "arcade_machine/scene.gltf", forward: [-0.423, 0.906] },
-  { id: "cabB", url: "arcademachine%20(1)/scene.gltf", forward: [0, 1] }
+  { id: "pixel", url: "models/arcade_machine_-_pixel-art_low-poly/scene.gltf", forward: [0, 1] },
+  { id: "cabA", url: "models/arcade_machine/scene.gltf", forward: [-0.423, 0.906] },
+  { id: "cabB", url: "models/arcademachine%20(1)/scene.gltf", forward: [0, 1] }
 ];
 
 const FIGHTER = {
   id: "chameleon",
   name: "MECHA CHAMELEON",
-  url: "chameleon_man_lite_-_simple_player_model/scene.gltf",
+  url: "models/chameleon_man_lite_-_simple_player_model/scene.gltf",
   height: 1.15,
   tint: 0x9dff70
 };

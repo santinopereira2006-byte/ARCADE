@@ -23,20 +23,20 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 export const DECOR_MODELS = {
-  danceFloor: ["animated-dance-floor-neon-lights/source/dancefloor.glb", "animated-dance-floor-neon-lights/scene.gltf"],
-  discoBall: ["disco-ball-with-colored-lights/source/disco-ball.glb", "disco-ball-with-colored-lights/scene.gltf"],
-  headphoneSign: ["headphone-neon-sign-headset/source/light head phone.glb", "headphone-neon-sign-headset/scene.gltf"],
-  playNeon: ["play_neon/scene.gltf", "play_neon/source/play_neon.glb"]
+  danceFloor: ["models/animated-dance-floor-neon-lights/source/dancefloor.glb", "models/animated-dance-floor-neon-lights/scene.gltf"],
+  discoBall: ["models/disco-ball-with-colored-lights/source/disco-ball.glb", "models/disco-ball-with-colored-lights/scene.gltf"],
+  headphoneSign: ["models/headphone-neon-sign-headset/source/light head phone.glb", "models/headphone-neon-sign-headset/scene.gltf"],
+  playNeon: ["models/play_neon/scene.gltf", "models/play_neon/source/play_neon.glb"]
 };
 
 // Statues on glowing pedestals. `pos` is in reference-hall coordinates.
 export const STATUES = [
-  { id: "mario", files: ["mario-mini/source/mario.glb", "mario-mini/source/Mario mini.glb"], height: 1.35, ring: 0xff2050, pos: [8.2, 6.6] },
-  { id: "pikachu", files: ["pikachu/source/pikachu2.glb"], height: 0.95, ring: 0xffe600, pos: [-6.4, 6.4], clip: /idle/i },
-  { id: "hulk", files: ["hulk/scene.gltf"], height: 2.3, ring: 0x39ff14, pos: [-10.4, 1.6], clip: /@idle/i },
-  { id: "megatron", files: ["megatron/scene.gltf"], height: 2.9, ring: 0xa855f7, pos: [-9.2, -6.8] },
-  { id: "optimus", files: ["optimus_prime/scene.gltf"], height: 2.7, ring: 0x00e5ff, pos: [9.2, -6.8] },
-  { id: "masterchief", files: ["masterchief/scene.gltf", "masterchief-walk/scene.gltf"], height: 2.15, ring: 0x2dd4bf, pos: [10.4, 1.6], clip: /walk/i, freeze: true }
+  { id: "mario", files: ["models/mario-mini/source/mario.glb", "models/mario-mini/source/Mario mini.glb"], height: 1.35, ring: 0xff2050, pos: [8.2, 6.6] },
+  { id: "pikachu", files: ["models/pikachu/source/pikachu2.glb"], height: 0.95, ring: 0xffe600, pos: [-6.4, 6.4], clip: /idle/i },
+  { id: "hulk", files: ["models/hulk/scene.gltf"], height: 2.3, ring: 0x39ff14, pos: [-10.4, 1.6], clip: /@idle/i },
+  { id: "megatron", files: ["models/megatron/scene.gltf"], height: 2.9, ring: 0xa855f7, pos: [-9.2, -6.8] },
+  { id: "optimus", files: ["models/optimus_prime/scene.gltf"], height: 2.7, ring: 0x00e5ff, pos: [9.2, -6.8] },
+  { id: "masterchief", files: ["models/masterchief/scene.gltf", "models/masterchief-walk/scene.gltf"], height: 2.15, ring: 0x2dd4bf, pos: [10.4, 1.6], clip: /walk/i, freeze: true }
 ];
 
 const REF = { x: 12.8, z: 9.5 };

@@ -14,7 +14,7 @@ export const SCALE_WARS_CHARACTERS = {
     weightKg: 6.0,
     category: "Pocket Class",
     color: "#ffdd44",
-    glbSrc: "pikachu/source/pikachu2.glb",
+    glbSrc: "models/pikachu/source/pikachu2.glb",
     svg: `<svg viewBox="0 0 160 200" class="holo-svg"><ellipse cx="80" cy="115" rx="46" ry="52" fill="#ffdd44" opacity="0.9"/><polygon points="35,65 15,15 48,45" fill="#ffdd44"/><polygon points="125,65 145,15 112,45" fill="#ffdd44"/><circle cx="55" cy="118" r="8" fill="#ef4444"/><circle cx="105" cy="118" r="8" fill="#ef4444"/><circle cx="68" cy="100" r="5" fill="#fff"/><circle cx="92" cy="100" r="5" fill="#fff"/></svg>`
   },
 
@@ -27,7 +27,7 @@ export const SCALE_WARS_CHARACTERS = {
     weightKg: 65,
     category: "Standard Humanoid",
     color: "#ef4444",
-    glbSrc: "mario-mini/source/mario.glb",
+    glbSrc: "models/mario-mini/source/mario.glb",
     svg: `<svg viewBox="0 0 160 200" class="holo-svg"><circle cx="80" cy="38" r="22" fill="#ef4444" opacity="0.9"/><path d="M 48 68 L 112 68 L 100 130 L 60 130 Z" fill="#ef4444" opacity="0.9"/><path d="M 64 130 L 58 190 M 96 130 L 102 190" stroke="#ef4444" stroke-width="12"/></svg>`
   },
   masterchief: {
@@ -39,7 +39,7 @@ export const SCALE_WARS_CHARACTERS = {
     weightKg: 450,
     category: "Super Soldier",
     color: "#22c55e",
-    glbSrc: "masterchief/scene.gltf",
+    glbSrc: "models/masterchief/scene.gltf",
     svg: `<svg viewBox="0 0 160 200" class="holo-svg"><polygon points="65,18 95,18 102,44 80,52 58,44" fill="#22c55e"/><polygon points="36,60 124,60 112,120 48,120" fill="#22c55e"/><path d="M 60 120 L 54 192 M 100 120 L 106 192" stroke="#22c55e" stroke-width="12"/></svg>`
   },
   hulk: {
@@ -51,7 +51,7 @@ export const SCALE_WARS_CHARACTERS = {
     weightKg: 635,
     category: "Heavy Colossus",
     color: "#10b981",
-    glbSrc: "hulk/scene.gltf",
+    glbSrc: "models/hulk/scene.gltf",
     svg: `<svg viewBox="0 0 160 200" class="holo-svg"><path d="M 68 32 Q 80 18 92 32 Q 80 44 68 32 Z" fill="#10b981"/><path d="M 24 60 Q 80 40 136 60 L 122 125 L 38 125 Z" fill="#10b981"/><path d="M 56 125 L 48 192 M 104 125 L 112 192" stroke="#10b981" stroke-width="16"/></svg>`
   },
   clifford: {
@@ -74,7 +74,7 @@ export const SCALE_WARS_CHARACTERS = {
     weightKg: 4300,
     category: "Cybertronian Leader",
     color: "#0284c7",
-    glbSrc: "optimus_prime/scene.gltf",
+    glbSrc: "models/optimus_prime/scene.gltf",
     svg: `<svg viewBox="0 0 160 200" class="holo-svg"><polygon points="68,14 92,14 98,32 62,32" fill="#0284c7"/><polygon points="22,46 58,36 102,36 138,46 128,76 102,125 58,125 32,76" fill="#0284c7"/><path d="M 64 125 L 56 195 M 96 125 L 104 195" stroke="#0284c7" stroke-width="14"/></svg>`
   },
   megatron: {
@@ -86,7 +86,7 @@ export const SCALE_WARS_CHARACTERS = {
     weightKg: 5700,
     category: "Decepticon Leader",
     color: "#a855f7",
-    glbSrc: "megatron/scene.gltf",
+    glbSrc: "models/megatron/scene.gltf",
     svg: `<svg viewBox="0 0 160 200" class="holo-svg"><polygon points="80,10 60,35 100,35" fill="#a855f7"/><polygon points="40,35 70,35 60,70 30,55" fill="#a855f7"/><polygon points="120,35 90,35 100,70 130,55" fill="#a855f7"/><polygon points="50,75 110,75 95,130 65,130" fill="#a855f7" opacity="0.9"/><path d="M 65 130 L 52 195 M 95 130 L 108 195" stroke="#a855f7" stroke-width="14"/><circle cx="70" cy="55" r="4" fill="#ff0055"/><circle cx="90" cy="55" r="4" fill="#ff0055"/></svg>`
   },
   iron_giant: {

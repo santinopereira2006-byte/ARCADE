@@ -36,8 +36,8 @@ $requiredFiles = @(
     "js\games\retro-blast.js",
     "js\leaderboard.js",
     "retro.html",
-    "retro.css",
-    "retro.js"
+    "css\retro.css",
+    "js\retro.js"
 )
 
 $missingFiles = @()
