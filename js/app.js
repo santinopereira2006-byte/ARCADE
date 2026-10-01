@@ -22,6 +22,11 @@ import { BlackoutBuildRenderer } from "./games/blackout-build.js";
 import { RetroBlastRenderer } from "./games/retro-blast.js";
 import { ROUND5_RETRO_BLAST_CONFIG } from "./data/round5-retro-blast.js";
 import { retroAudio } from "./audio.js";
+import { AntigravityBackground } from "./antigravity-bg.js";
+import { TechText } from "./tech-text.js";
+import { GradientText } from "./gradient-text.js";
+import { SpotlightCard } from "./spotlight-card.js";
+import { ArcadeCursor } from "./arcade-cursor.js";
 
 class ArcadeApp {
   constructor() {
@@ -39,6 +44,11 @@ class ArcadeApp {
     this.organizer = new OrganizerConsole(state, this);
     this.retroBlast = null;
     this.room3d = null;
+    this.antigravity = null;
+    this.techText = null;
+    this.gradientTexts = [];
+    this.spotlightCards = [];
+    this.cursor = null;
 
     // Selected meme state for Round 3 Phase B
     this.currentMemeTemplateId = "drake";
@@ -53,6 +63,96 @@ class ArcadeApp {
     this.bindGlobalNavigation();
     this.ui.showScreen("screen-home");
     AuthManager.applyRoleVisibility();
+    this.initAntigravity();
+    this.initTechText();
+    this.initGradientText();
+    this.initSpotlightCards();
+    this.initCursor();
+  }
+
+  initAntigravity() {
+    const bgCanvas = document.getElementById("antigravity-canvas");
+    if (bgCanvas) {
+      try {
+        this.antigravity = new AntigravityBackground(bgCanvas, {
+          count: 300,
+          magnetRadius: 10,
+          ringRadius: 10,
+          waveSpeed: 0.3,
+          waveAmplitude: 1,
+          particleSize: 2,
+          lerpSpeed: 0.1,
+          color: "#FF9FFC",
+          autoAnimate: false,
+          particleVariance: 1,
+          rotationSpeed: 0,
+          depthFactor: 1,
+          pulseSpeed: 3,
+          particleShape: "capsule",
+          fieldStrength: 10
+        });
+      } catch (err) {
+        console.warn("Antigravity background failed:", err);
+      }
+    }
+  }
+
+  initTechText() {
+    const container = document.getElementById("heroTechText");
+    if (container) {
+      try {
+        this.techText = new TechText(container, {
+          text: "ARCADE",
+          fontFamily: "'Poppins', sans-serif",
+          fontWeight: 900,
+          fontSize: 100,
+          letterSpacing: -0.02,
+          color: "#ffffff",
+          accentColor: "#38bdf8",
+          reveal: "letter",
+          reach: 180,
+          softness: 0.7,
+          dashLength: 4,
+          dashGap: 2,
+          strokeWidth: 1.8,
+          lineStyle: "dashed",
+          specks: 15,
+          selection: true,
+          labels: true,
+          draggable: true,
+          sweep: true,
+          speed: 1,
+          align: "left",
+          paddingLeft: 6
+        });
+      } catch (err) {
+        console.warn("TechText initialization failed:", err);
+      }
+    }
+  }
+
+  initGradientText() {
+    try {
+      this.gradientTexts = GradientText.initAll();
+    } catch (err) {
+      console.warn("GradientText initialization failed:", err);
+    }
+  }
+
+  initSpotlightCards() {
+    try {
+      this.spotlightCards = SpotlightCard.initAll();
+    } catch (err) {
+      console.warn("SpotlightCard initialization failed:", err);
+    }
+  }
+
+  initCursor() {
+    try {
+      this.cursor = new ArcadeCursor({ lerpSpeed: 0.18 });
+    } catch (err) {
+      console.warn("ArcadeCursor initialization failed:", err);
+    }
   }
 
   bindGlobalNavigation() {
@@ -61,10 +161,8 @@ class ArcadeApp {
       participantLoginForm.addEventListener("submit", (event) => {
         event.preventDefault();
         const nameInput = document.getElementById("participantTeamName");
-        const codeInput = document.getElementById("participantAccessCode");
         const errorEl = document.getElementById("participantLoginError");
         const enteredName = (nameInput?.value || "").trim();
-        const enteredCode = (codeInput?.value || "").trim().toUpperCase();
 
         if (!enteredName) {
           if (errorEl) errorEl.textContent = "Please enter your name or team name.";
@@ -72,23 +170,16 @@ class ArcadeApp {
           return;
         }
 
-        // Look up if a team was pre-registered with these credentials
-        let team = null;
-        if (enteredCode) {
-          team = LeaderboardManager.findTeamByCredentials(enteredName, enteredCode);
-        }
-        if (!team) {
-          // Check by name only in roster
-          const roster = LeaderboardManager.getRoster();
-          team = roster.find(t => t.name.toLowerCase() === enteredName.toLowerCase());
-        }
+        // Check if team already exists in roster by name
+        const roster = LeaderboardManager.getRoster();
+        let team = roster.find(t => t.name.toLowerCase() === enteredName.toLowerCase());
 
         if (!team) {
           // Automatically register this participant/team
           team = LeaderboardManager.registerTeam({
             name: enteredName,
             department: "Arcade Arena",
-            accessCode: enteredCode || LeaderboardManager.generateAccessCode()
+            accessCode: LeaderboardManager.generateAccessCode()
           });
         }
 
@@ -102,15 +193,18 @@ class ArcadeApp {
         state.setTeam(team);
         if (errorEl) errorEl.textContent = "";
 
-        // Update 3D HUD player tag and loading note
+        // Update 3D HUD player tag, warp pilot display, and loading note
         const playerNameEl = document.getElementById("room3dPlayerName");
         if (playerNameEl) playerNameEl.textContent = team.name.toUpperCase();
 
+        const pilotEl = document.getElementById("room3dLoadingPilot");
+        if (pilotEl) pilotEl.textContent = team.name.toUpperCase();
+
         const loadingTitleEl = document.getElementById("room3dLoadingTitle");
-        if (loadingTitleEl) loadingTitleEl.textContent = "BOOTING 3D ARCADE...";
+        if (loadingTitleEl) loadingTitleEl.textContent = "WARPING INTO MECHA WORLD...";
 
         const loadingNoteEl = document.getElementById("room3dLoadingNote");
-        if (loadingNoteEl) loadingNoteEl.textContent = `Welcome, ${team.name}! Loading 3D arena assets…`;
+        if (loadingNoteEl) loadingNoteEl.textContent = `Pilot verified: ${team.name}. Streaming 3D arena assets…`;
 
         // Switch to the 3D room and boot the 3D models!
         this.enterArcadeRoom();
@@ -603,7 +697,7 @@ class ArcadeApp {
     const step = steps[idx];
 
     if (step.kind === "scale") {
-      arena.innerHTML = ScaleWarsRenderer.renderQuestion(step.q, () => {}, () => {}, () => {});
+      arena.innerHTML = ScaleWarsRenderer.renderQuestion(step.q, () => { }, () => { }, () => { });
       this.bindPracticeScale(step.q);
     } else {
       arena.innerHTML = BlackoutBuildRenderer.renderLevel(0, "visibility", "");
@@ -778,6 +872,7 @@ class ArcadeApp {
   async enterArcadeRoom() {
     this.ui.showScreen("screen-room3d");
     document.body.classList.add("room3d-mode");
+    if (this.antigravity) this.antigravity.stop();
 
     const playerName = state.activeTeam?.name || "CHALLENGER";
     const playerNameEl = document.getElementById("room3dPlayerName");
@@ -816,6 +911,7 @@ class ArcadeApp {
   exitArcadeRoom() {
     if (this.room3d) this.room3d.exit();
     document.body.classList.remove("room3d-mode");
+    if (this.antigravity) this.antigravity.start();
     this.ui.showScreen("screen-home");
   }
 
@@ -1279,7 +1375,7 @@ class ArcadeApp {
       const totalScore = (state.round4Results || []).reduce((acc, r) => acc + (r ? (r.pointsEarned || 0) : 0), 0);
       const arena = document.getElementById("gameArena");
       arena.innerHTML = BlackoutBuildRenderer.renderFinalResults(state.round4Results || [], totalScore, elapsedSec);
-      
+
       const finishBtn = document.getElementById("btnFinishRound4");
       if (finishBtn) {
         finishBtn.addEventListener("click", () => this.completeRound(4));
@@ -1353,8 +1449,8 @@ class ArcadeApp {
         secondsLeft--;
         if (secondsLeft > 0) {
           if (liveShutterStatus) {
-            liveShutterStatus.textContent = isBlackout 
-              ? `⚠️ BLACKOUT (${secondsLeft}s)` 
+            liveShutterStatus.textContent = isBlackout
+              ? `⚠️ BLACKOUT (${secondsLeft}s)`
               : `👁️ CODE VISIBLE (${secondsLeft}s)`;
           }
         } else {

@@ -178,11 +178,19 @@ export class ArcadeRoom3D {
 
     this.bindEvents();
     this.resize();
+    requestAnimationFrame(() => this.resize());
     this.applyQuality(this.quality);
     this.ready = true;
-    this.setProgress(1, "ARENA READY — SPAWNING MECHA CHAMELEON");
+    this.setProgress(1, "DIMENSIONAL BREACH ACHIEVED — ENTERING MECHA WORLD");
     if (this.loadingEl) {
-      setTimeout(() => this.loadingEl.classList.add("hidden"), 350);
+      setTimeout(() => {
+        // Trigger dramatic scale-up zoom into the mecha world
+        this.loadingEl.classList.add("warp-out");
+        setTimeout(() => {
+          this.loadingEl.classList.add("hidden");
+          this.loadingEl.classList.remove("warp-out");
+        }, 850);
+      }, 350);
     }
     this.renderFrame();
     // Character statues stream in after the room is usable (Master Chief is large).
@@ -1309,6 +1317,7 @@ export class ArcadeRoom3D {
     this.clock.getDelta();
     document.body.classList.add("room3d-mode");
     this.resize();
+    requestAnimationFrame(() => this.resize());
     this.renderer.setAnimationLoop(() => this.tick());
     if (this.canvas) this.canvas.focus();
     return true;
@@ -2048,8 +2057,11 @@ export class ArcadeRoom3D {
   // ------------------------------------------------------------------- plumbing
 
   setProgress(ratio, note) {
-    if (this.progressBarEl) this.progressBarEl.style.width = Math.round(ratio * 100) + "%";
+    const pct = Math.round(ratio * 100);
+    if (this.progressBarEl) this.progressBarEl.style.width = pct + "%";
     if (this.loadingNoteEl && note) this.loadingNoteEl.textContent = note;
+    const pctEl = document.getElementById("room3dLoadingPct");
+    if (pctEl) pctEl.textContent = pct + "%";
   }
 
   showError(message) {

@@ -17,28 +17,41 @@
   --nb-panel-soft: rgba(6, 10, 24, 0.66);
 }
 
-/* ---------- Room background (swaps per round) ---------- */
-body {
-  --bg-img: url("../assets/arcade-room-bg.png");
-  background-color: #04060d;
-  background-image:
-    radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.30) 52%, rgba(2, 4, 10, 0.72) 100%),
-    var(--bg-img);
-  background-size: cover, cover;
-  background-position: center, center;
-  background-attachment: fixed, fixed;
-  background-repeat: no-repeat, no-repeat;
+/* ---------- Antigravity Particle Background & Body Theme ---------- */
+.antigravity-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
 }
 
-body[data-round-bg="1"] { --bg-img: url("../assets/bg-round1.png"); }
-body[data-round-bg="2"] { --bg-img: url("../assets/bg-round2.png"); }
-body[data-round-bg="3"] { --bg-img: url("../assets/bg-round3.png"); }
-body[data-round-bg="4"] { --bg-img: url("../assets/bg-round4.png"); }
-body[data-round-bg="5"] { --bg-img: url("../assets/bg-round5.png"); }
+body {
+  background-color: #06070c;
+  background-image:
+    /* Ambient upper-center glow matching particle palette */
+    radial-gradient(ellipse 80% 50% at 50% -12%, rgba(168, 85, 247, 0.14) 0%, transparent 65%),
+    /* Soft ambient cyan fill at bottom-right */
+    radial-gradient(ellipse 60% 40% at 90% 85%, rgba(56, 189, 248, 0.06) 0%, transparent 60%),
+    /* Soft pink/magenta hue at bottom-left */
+    radial-gradient(ellipse 50% 40% at 10% 90%, rgba(255, 159, 252, 0.04) 0%, transparent 60%),
+    /* Subtle clean architectural grid */
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+  background-attachment: fixed;
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat, repeat;
+}
 
-/* Soften the old scanline grid so the room photo reads through */
+body[data-round-bg="1"] { background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round1.png"); background-size: cover; }
+body[data-round-bg="2"] { background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round2.png"); background-size: cover; }
+body[data-round-bg="3"] { background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round3.png"); background-size: cover; }
+body[data-round-bg="4"] { background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round4.png"); background-size: cover; }
+body[data-round-bg="5"] { background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round5.png"); background-size: cover; }
+
 .cyber-grid-overlay {
-  opacity: 0.25;
+  display: none !important;
 }
 
 /* ---------- Shared neon panel ---------- */
@@ -227,37 +240,37 @@ body[data-round-bg="5"] { --bg-img: url("../assets/bg-round5.png"); }
 
 /* ---------- Buttons ---------- */
 .btn-primary-gaming {
-  background: linear-gradient(90deg, #7a1fff, var(--nb-magenta));
+  background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
   border: none;
   border-radius: 12px;
   color: #ffffff;
-  font-family: 'Orbitron', sans-serif;
-  font-weight: 800;
-  letter-spacing: 1px;
-  box-shadow: 0 0 18px rgba(255, 43, 214, 0.45);
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.28);
 }
 
 .btn-primary-gaming:hover:not(:disabled) {
-  box-shadow: 0 0 26px rgba(255, 43, 214, 0.7);
+  box-shadow: 0 6px 22px rgba(236, 72, 153, 0.38);
 }
 
 .btn-secondary-gaming {
-  background: rgba(0, 229, 255, 0.06);
-  border: 2px solid var(--nb-cyan);
+  background: rgba(56, 189, 248, 0.06);
+  border: 1.5px solid rgba(56, 189, 248, 0.4);
   border-radius: 12px;
-  color: var(--nb-cyan);
-  font-family: 'Orbitron', sans-serif;
-  font-weight: 700;
-  box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+  color: #38bdf8;
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 600;
+  box-shadow: none;
 }
 
 .btn-arcade-pass {
   background: rgba(6, 10, 24, 0.8);
-  border: 2px solid #4d6b85;
+  border: 1.5px solid #4d6b85;
   border-radius: 12px;
   color: #bcd6e8;
-  font-family: 'Orbitron', sans-serif;
-  font-weight: 700;
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 600;
 }
 
 .btn-arcade-pass:hover:not(:disabled) {

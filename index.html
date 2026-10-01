@@ -9,20 +9,24 @@
     content="ARCADE — Four Games. One Score. Zero Room for Error. Multi-round competitive esports tournament combining Scale Wars, CTRL+ALT+GUESS, Tech Meme Battle, and Blackout Build.">
   <meta name="theme-color" content="#05070d">
 
-  <!-- Google Fonts: Orbitron, Rajdhani, JetBrains Mono, Inter & Press Start 2P -->
+  <!-- Google Fonts: Unbounded, Poppins, JetBrains Mono & Press Start 2P -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Unbounded:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&family=Press+Start+2P&display=swap"
     rel="stylesheet">
 
   <!-- CSS Stylesheets (Cyberpunk Esports Theme) -->
   <link rel="stylesheet" href="css/arcade-style.css?v=3.0">
+  <link rel="stylesheet" href="css/tech-text.css?v=1.0">
+  <link rel="stylesheet" href="css/gradient-text.css?v=1.0">
+  <link rel="stylesheet" href="css/spotlight-card.css?v=1.0">
   <link rel="stylesheet" href="css/blackout-ide.css?v=3.0">
   <link rel="stylesheet" href="css/progressive-reveal.css?v=3.0">
   <link rel="stylesheet" href="css/retro-blast.css?v=3.0">
   <link rel="stylesheet" href="css/arcade-neon.css?v=1.0">
   <link rel="stylesheet" href="css/arcade-room3d.css?v=1.0">
+  <link rel="stylesheet" href="css/arcade-cursor.css?v=1.0">
 
   <!-- Bare-specifier map so vendored Three.js addons work with no build step -->
   <script type="importmap">
@@ -37,48 +41,8 @@
 
 <body>
 
-  <!-- Cyber Grid Scanline Overlay -->
-  <div class="cyber-grid-overlay" aria-hidden="true"></div>
-
-  <!-- Top Global Navigation Bar -->
-  <header class="top-nav">
-    <div class="brand-wrapper btn-nav-home" title="Return to ARCADE Home">
-      <span class="brand-icon">🕹️</span>
-      <span class="brand-title">ARCADE</span>
-      <span class="brand-badge">COMPETITION PLATFORM</span>
-    </div>
-
-    <div class="nav-actions">
-      <!-- Fullscreen Toggle -->
-      <button type="button" class="btn-nav-mode" id="btnFullscreenToggle" title="Toggle browser fullscreen">
-        <span class="mode-icon">⛶</span> FULLSCREEN
-      </button>
-
-      <!-- Projector / Presentation Mode Toggle -->
-      <button type="button" class="btn-nav-mode" id="togglePresentationBtn"
-        title="Toggle Projector Presentation Mode (Shortcut: Press P)">
-        <span class="mode-icon">📽️</span> PRESENTATION MODE
-      </button>
-
-      <!-- Tournament Leaderboard Screen Trigger -->
-      <button type="button" class="btn-nav-mode btn-nav-leaderboard" id="btnNavLeaderboard"
-        title="View Tournament Leaderboard">
-        <span class="mode-icon">🏆</span> LEADERBOARD
-      </button>
-
-      <!-- Retro Blast Standalone Mode Trigger -->
-      <a href="retro.html" class="btn-nav-mode btn-nav-retro" id="btnNavRetroBlast"
-        title="Launch Retro Blast 3D Arcade Machine" style="text-decoration: none;">
-        <span class="mode-icon">🎯</span> RETRO BLAST
-      </a>
-
-      <!-- Quick Organizer Terminal Trigger -->
-      <button type="button" class="btn-nav-mode" id="btnNavOrganizer"
-        title="Open Organizer Console — organizer passphrase required">
-        <span class="mode-icon">⚙️</span>
-      </button>
-    </div>
-  </header>
+  <!-- Antigravity 3D Particle Background Field (@react-bits/Antigravity) -->
+  <canvas id="antigravity-canvas" class="antigravity-canvas" aria-hidden="true"></canvas>
 
   <!-- App Main Viewport -->
   <main class="app-viewport">
@@ -89,25 +53,97 @@
     <section id="screen-home" class="screen active">
       <div class="access-shell">
         <div class="access-brand-panel">
-          <span class="hero-badge-tag">CSI TECHNICAL SYMPOSIUM 2026</span>
-          <div class="access-kicker">EVENT-DAY ARCADE PLATFORM</div>
-          <h1 class="hero-main-title glitch-title" data-text="ARCADE">ARCADE</h1>
-          <p class="access-tagline">Enter your name to step inside the 3D Arcade Arena.</p>
-          <p class="access-copy">Explore the cyberpunk hall as Mecha Chameleon, interact with arcade cabinets, and
-            compete across 5 tournament disciplines.</p>
-          <div class="access-round-strip" aria-label="Tournament rounds">
-            <span class="round-strip-item"><b>01</b> Scale Wars</span>
-            <span class="round-strip-item"><b>02</b> Ctrl + Alt + Guess</span>
-            <span class="round-strip-item"><b>03</b> Tech Meme Battle</span>
-            <span class="round-strip-item"><b>04</b> Blackout Code</span>
-            <span class="round-strip-item"><b>05</b> Retro Blast 🎯</span>
+          <span class="hero-badge-tag" data-gradient-text data-gradient-border="true"
+            data-gradient-colors='["#38bdf8", "#818cf8", "#c084fc", "#e879f9", "#38bdf8"]' data-gradient-speed="4">CSI
+            TECHNICAL SYMPOSIUM 2026</span>
+          <div class="access-kicker" data-gradient-text
+            data-gradient-colors='["#38bdf8", "#67e8f9", "#818cf8", "#c084fc", "#38bdf8"]' data-gradient-speed="3">
+            EVENT-DAY ARCADE PLATFORM</div>
+          <h1 class="visually-hidden">ARCADE</h1>
+          <div id="heroTechText" class="hero-tech-text" role="img" aria-label="ARCADE"></div>
+          <div class="access-tagline-wrap">
+            <span class="access-live-pill"><span class="live-pulse-dot"></span> LIVE LOBBY</span>
+          </div>
+          <p class="access-tagline">
+            Enter your name to step inside the <span class="shiny-text">3D Arcade Arena</span>.
+          </p>
+          <p class="access-copy">
+            Explore the cyberpunk hall as <span class="access-copy-mecha">Mecha Chameleon</span>, interact with arcade
+            cabinets, and compete across <span class="access-copy-highlight">5 tournament disciplines</span>.
+          </p>
+
+          <!-- React Bits SpotlightCard Bento Grid -->
+          <div class="access-disciplines-grid" aria-label="Tournament rounds">
+            <!-- Round 01 -->
+            <div class="discipline-card spotlight-card" data-spotlight data-spotlight-color="rgba(56, 189, 248, 0.22)">
+              <div class="discipline-card-left">
+                <span class="discipline-num">01</span>
+                <div class="discipline-info">
+                  <span class="discipline-title">Scale Wars</span>
+                  <span class="discipline-sub">Estimation Duel • 100 PTS</span>
+                </div>
+              </div>
+              <span class="discipline-icon">📐</span>
+            </div>
+
+            <!-- Round 02 -->
+            <div class="discipline-card spotlight-card" data-spotlight data-spotlight-color="rgba(129, 140, 248, 0.22)">
+              <div class="discipline-card-left">
+                <span class="discipline-num">02</span>
+                <div class="discipline-info">
+                  <span class="discipline-title">Ctrl + Alt + Guess</span>
+                  <span class="discipline-sub">Progressive Reveal • 100 PTS</span>
+                </div>
+              </div>
+              <span class="discipline-icon">🔍</span>
+            </div>
+
+            <!-- Round 03 -->
+            <div class="discipline-card spotlight-card" data-spotlight data-spotlight-color="rgba(192, 132, 252, 0.22)">
+              <div class="discipline-card-left">
+                <span class="discipline-num">03</span>
+                <div class="discipline-info">
+                  <span class="discipline-title">Tech Meme Battle</span>
+                  <span class="discipline-sub">Trivia & Studio • 150 PTS</span>
+                </div>
+              </div>
+              <span class="discipline-icon">🎭</span>
+            </div>
+
+            <!-- Round 04 -->
+            <div class="discipline-card spotlight-card" data-spotlight data-spotlight-color="rgba(34, 211, 238, 0.22)">
+              <div class="discipline-card-left">
+                <span class="discipline-num">04</span>
+                <div class="discipline-info">
+                  <span class="discipline-title">Blackout Code</span>
+                  <span class="discipline-sub">Syntax Resilience • 150 PTS</span>
+                </div>
+              </div>
+              <span class="discipline-icon">⚡</span>
+            </div>
+
+            <!-- Round 05 (Grand Finale) -->
+            <div class="discipline-card discipline-card-finale spotlight-card" data-spotlight
+              data-spotlight-color="rgba(244, 63, 94, 0.26)">
+              <div class="discipline-card-left">
+                <span class="discipline-num">05</span>
+                <div class="discipline-info">
+                  <span class="discipline-title">Retro Blast 🎯</span>
+                  <span class="discipline-sub">Boss Reflex Wave • Sudden Death Mode • 150 PTS</span>
+                </div>
+              </div>
+              <span class="discipline-badge-finale">GRAND FINALE</span>
+            </div>
           </div>
         </div>
 
         <div class="access-card">
           <div class="access-card-header">
-            <span class="game-badge">CHALLENGER AUTHENTICATION</span>
-            <h2>ENTER THE 3D ARCADE</h2>
+            <span class="game-badge" data-gradient-text data-gradient-border="true"
+              data-gradient-colors='["#38bdf8", "#818cf8", "#f43f5e", "#ec4899", "#38bdf8"]'
+              data-gradient-speed="4">CHALLENGER AUTHENTICATION</span>
+            <h2><span data-gradient-text data-gradient-colors='["#ffffff", "#e0f2fe", "#93c5fd", "#c4b5fd", "#ffffff"]'
+                data-gradient-speed="4">ENTER THE 3D ARCADE</span></h2>
             <p>Enter your name or team name to boot into the 3D arena.</p>
           </div>
           <form id="participantLoginForm" class="access-form" autocomplete="off">
@@ -116,12 +152,6 @@
               <input type="text" id="participantTeamName" class="arcade-text-input"
                 placeholder="e.g. CyberNinja, Team Nova, Alex..." required maxlength="40" autofocus
                 autocomplete="off" />
-            </div>
-            <div class="access-field">
-              <label for="participantAccessCode">ACCESS PASS KEY <span class="field-optional"
-                  style="color: var(--text-dim); font-size: 11px; font-weight: normal; margin-left: 6px;">(OPTIONAL)</span></label>
-              <input type="text" id="participantAccessCode" class="arcade-text-input access-code-input"
-                placeholder="Pass key (if issued by admin)" maxlength="12" autocomplete="off" />
             </div>
             <p class="access-error" id="participantLoginError" role="alert" aria-live="polite"></p>
             <button type="submit" class="btn-primary-gaming access-submit" id="btnEnterArcade">
@@ -394,14 +424,46 @@
       <div class="room3d-stage">
         <canvas id="room3dCanvas" class="room3d-canvas" tabindex="0" aria-label="3D arcade floor"></canvas>
 
-        <div class="room3d-loading" id="room3dLoading">
-          <div class="room3d-loading-card">
-            <span class="game-badge">BOOTING ARCADE FLOOR</span>
-            <h2 class="room3d-loading-title" id="room3dLoadingTitle">LOADING 3D ROOM…</h2>
-            <div class="room3d-progress">
-              <div class="room3d-progress-bar" id="room3dProgressBar"></div>
+        <!-- Cinematic Warp Loading Screen (Transition into Mecha World) -->
+        <div class="room3d-loading mecha-warp-screen" id="room3dLoading">
+          <!-- Full-Bleed Animated Mecha World GIF Background -->
+          <div class="mecha-warp-bg" style="background-image: url('assets/arcade-loading.gif');"></div>
+
+          <!-- Atmospheric Vignette & Grid -->
+          <div class="mecha-warp-vignette"></div>
+
+          <!-- Hyper-speed Warp Flash Overlay -->
+          <div class="mecha-warp-flash" id="mechaWarpFlash"></div>
+
+          <!-- Futuristic Cockpit HUD Telemetry -->
+          <div class="mecha-warp-hud">
+            <div class="mecha-warp-badge">
+              <span class="warp-pulse-dot"></span>
+              <span>DIMENSIONAL TRANSIT DETECTED</span>
             </div>
-            <p class="room3d-loading-note" id="room3dLoadingNote">Fetching room geometry…</p>
+
+            <h1 class="mecha-warp-title" id="room3dLoadingTitle">WARPING INTO MECHA WORLD...</h1>
+
+            <div class="mecha-warp-player-callout">
+              <span class="callout-label">PILOT IDENTITY:</span>
+              <span class="callout-name" id="room3dLoadingPilot">—</span>
+            </div>
+
+            <div class="mecha-warp-progress-box">
+              <div class="mecha-warp-bar-track">
+                <div class="room3d-progress-bar mecha-warp-bar" id="room3dProgressBar"></div>
+              </div>
+              <div class="mecha-warp-status-row">
+                <span class="room3d-loading-note" id="room3dLoadingNote">INITIALIZING MECHA ARENA SYSTEMS…</span>
+                <span class="mecha-warp-pct" id="room3dLoadingPct">0%</span>
+              </div>
+            </div>
+
+            <div class="mecha-telemetry-strip">
+              <span><b>RIG:</b> MECHA CHAMELEON</span>
+              <span><b>ZONE:</b> 3D NEON ARCADE</span>
+              <span><b>LINK:</b> ONLINE</span>
+            </div>
           </div>
         </div>
 

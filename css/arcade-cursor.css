@@ -1,0 +1,220 @@
+/* Cyberpunk Esports Custom Reticle Cursor */
+
+@media (hover: hover) and (pointer: fine) {
+  body,
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  .spotlight-card,
+  .discipline-card,
+  .round-strip-item,
+  .admin-portal-btn,
+  .btn-primary-gaming,
+  .btn-secondary-gaming {
+    cursor: none !important;
+  }
+}
+
+.arcade-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 999999;
+  mix-blend-mode: normal;
+  transition: opacity 0.2s ease;
+}
+
+.arcade-cursor.cursor-hidden {
+  opacity: 0;
+}
+
+/* Precision Core Dot */
+.arcade-cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 10px #38bdf8, 0 0 22px rgba(56, 189, 248, 0.75);
+  pointer-events: none;
+  will-change: transform;
+  z-index: 1000000;
+  transition: width 0.2s ease, height 0.2s ease, margin 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+/* Trailing Reticle Ring */
+.arcade-cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 36px;
+  height: 36px;
+  margin-top: -18px;
+  margin-left: -18px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(56, 189, 248, 0.6);
+  background: rgba(56, 189, 248, 0.04);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+  pointer-events: none;
+  will-change: transform;
+  z-index: 999999;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              margin 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.25s ease,
+              background-color 0.25s ease,
+              border-radius 0.25s ease,
+              box-shadow 0.25s ease,
+              opacity 0.25s ease;
+}
+
+/* Reticle Crosshair Corner Brackets */
+.arcade-cursor-ring .reticle-corner {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-color: rgba(56, 189, 248, 0.85);
+  opacity: 0;
+  transition: opacity 0.2s ease, border-color 0.25s ease;
+}
+
+.reticle-tl {
+  top: -2px;
+  left: -2px;
+  border-top: 1.5px solid;
+  border-left: 1.5px solid;
+}
+
+.reticle-tr {
+  top: -2px;
+  right: -2px;
+  border-top: 1.5px solid;
+  border-right: 1.5px solid;
+}
+
+.reticle-br {
+  bottom: -2px;
+  right: -2px;
+  border-bottom: 1.5px solid;
+  border-right: 1.5px solid;
+}
+
+.reticle-bl {
+  bottom: -2px;
+  left: -2px;
+  border-bottom: 1.5px solid;
+  border-left: 1.5px solid;
+}
+
+/* Hovering Interactive Element: expands to lock-on target HUD */
+.arcade-cursor.cursor-hover .arcade-cursor-dot {
+  background: #38bdf8;
+  box-shadow: 0 0 14px #38bdf8, 0 0 28px rgba(56, 189, 248, 0.95);
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  margin-left: -3px;
+}
+
+.arcade-cursor.cursor-hover .arcade-cursor-ring {
+  width: 48px;
+  height: 48px;
+  margin-top: -24px;
+  margin-left: -24px;
+  border-color: #ec4899;
+  background: rgba(236, 72, 153, 0.08);
+  box-shadow: 0 0 22px rgba(236, 72, 153, 0.45);
+}
+
+.arcade-cursor.cursor-hover .reticle-corner {
+  opacity: 1;
+  border-color: #ec4899;
+}
+
+/* Mousedown / Click Down state */
+.arcade-cursor.cursor-down .arcade-cursor-dot {
+  transform: scale(0.65);
+  background: #f43f5e;
+  box-shadow: 0 0 16px #f43f5e;
+}
+
+.arcade-cursor.cursor-down .arcade-cursor-ring {
+  width: 26px;
+  height: 26px;
+  margin-top: -13px;
+  margin-left: -13px;
+  border-color: #f43f5e;
+  background: rgba(244, 63, 94, 0.2);
+  box-shadow: 0 0 18px rgba(244, 63, 94, 0.6);
+}
+
+/* Text Input Hover */
+.arcade-cursor.cursor-input .arcade-cursor-ring {
+  width: 4px;
+  height: 24px;
+  margin-top: -12px;
+  margin-left: -2px;
+  border-radius: 2px;
+  border-color: #38bdf8;
+  background: #38bdf8;
+  box-shadow: 0 0 14px #38bdf8;
+}
+
+.arcade-cursor.cursor-input .arcade-cursor-dot {
+  opacity: 0;
+}
+
+/* Click Ripple Shockwave */
+.arcade-cursor-ripple {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 999998;
+  border: 1.5px solid #38bdf8;
+  box-shadow: 0 0 12px #38bdf8, inset 0 0 8px rgba(56, 189, 248, 0.3);
+  animation: cursorRippleAnim 0.4s cubic-bezier(0.12, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes cursorRippleAnim {
+  0% {
+    width: 6px;
+    height: 6px;
+    margin-top: -3px;
+    margin-left: -3px;
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    width: 58px;
+    height: 58px;
+    margin-top: -29px;
+    margin-left: -29px;
+    opacity: 0;
+    transform: scale(1.4);
+    border-color: #ec4899;
+  }
+}
+
+/* Touchscreens: fully disable custom cursor */
+@media (hover: none) and (pointer: coarse) {
+  .arcade-cursor,
+  .arcade-cursor-ripple {
+    display: none !important;
+  }
+  body,
+  a,
+  button,
+  input {
+    cursor: auto !important;
+  }
+}

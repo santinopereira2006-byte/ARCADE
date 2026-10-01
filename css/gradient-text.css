@@ -1,0 +1,93 @@
+/* React Bits - GradientText Component Styles */
+
+.animated-gradient-text {
+  position: relative;
+  margin: 0;
+  display: inline-flex;
+  max-width: fit-content;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1.25rem;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: box-shadow 0.4s ease-out, transform 0.2s ease;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.animated-gradient-text.with-border {
+  padding: 0.35rem 0.85rem;
+}
+
+.gradient-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.gradient-overlay::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: inherit;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  transform: translate(-50%, -50%);
+  background-color: #0b0e17; /* match cyberpunk deep dark background */
+  z-index: -1;
+}
+
+.animated-gradient-text .text-content {
+  display: inline-block;
+  position: relative;
+  z-index: 2;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  line-height: inherit;
+}
+
+/* Enhancements for landing page elements */
+.hero-badge-tag.animated-gradient-text {
+  margin-bottom: 18px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11.5px;
+  letter-spacing: 1.5px;
+}
+
+.access-kicker.animated-gradient-text {
+  margin-bottom: 8px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.game-badge.animated-gradient-text {
+  font-family: 'Poppins', sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.hero-badge-tag.animated-gradient-text.with-border,
+.access-card-header .game-badge.animated-gradient-text.with-border {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.15) !important;
+}
+
+.access-kicker.animated-gradient-text {
+  color: transparent !important;
+  background: transparent !important;
+}
+
