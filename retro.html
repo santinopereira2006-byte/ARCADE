@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description"
+    content="Retro Blast: Arcade Edition - A responsive, synthwave retrowave-inspired FPS Aim Labs training arcade game.">
+  <title>RETRO BLAST: ARCADE EDITION</title>
+
+  <!-- Google Fonts: Press Start 2P & Orbitron -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Press+Start+2P&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="retro.css">
+  <!-- Three.js for 3D Neon Weapon Rig (CDN with local ES Module fallback) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script type="module">
+    if (typeof THREE === 'undefined') {
+      try {
+        const THREE_MOD = await import('./js/vendor/three.module.js');
+        window.THREE = THREE_MOD;
+      } catch (err) {
+        console.warn('Three.js fallback failed:', err);
+      }
+    }
+    try {
+      const { retroAudio } = await import('./js/audio.js');
+      window.retroAudio = retroAudio;
+    } catch (e) {
+      console.warn('retroAudio import error:', e);
+    }
+  </script>
+</head>
+
+<body>
+  <!-- CRT Scanline & Screen Vignette Overlay -->
+  <div class="crt-overlay" aria-hidden="true"></div>
+  <div class="crt-vignette" aria-hidden="true"></div>
+  <div class="screen-flash" id="screen-flash" aria-hidden="true"></div>
+
+  <!-- Main Game Container -->
+  <div id="game-app" class="game-container state-menu">
+
+    <!-- ============================================== -->
+    <!-- 1. MAIN SCREEN: SYNTHWAVE ARCADE CABINET UI    -->
+    <!-- ============================================== -->
+    <section id="screen-menu" class="screen screen-menu">
+      <!-- Synthwave Retrowave Horizon & Wireframe Background -->
+      <div class="menu-backdrop" aria-hidden="true">
+        <div class="synth-sun"></div>
+        <div class="synth-mountains-back"></div>
+        <div class="synth-mountains"></div>
+        <div class="menu-grid-floor"></div>
+
+        <!-- Floating Wireframe Polyhedrons in background -->
+        <div class="floating-wireframe wf-left-top">
+          <div class="wireframe-tetrahedron"></div>
+        </div>
+        <div class="floating-wireframe wf-left-mid">
+          <div class="wireframe-tetrahedron"></div>
+        </div>
+        <div class="floating-wireframe wf-right-top">
+          <div class="wireframe-tetrahedron"></div>
+        </div>
+        <div class="floating-wireframe wf-right-mid">
+          <div class="wireframe-tetrahedron"></div>
+        </div>
+      </div>
+
+      <!-- Centered Neon Wireframe Arcade Cabinet Structure -->
+      <div class="arcade-cabinet-stage">
+        <div class="arcade-cabinet-outline">
+
+          <!-- Cabinet Marquee Top Header -->
+          <div class="cabinet-marquee">
+            <div class="marquee-inner-frame">
+              <h1 class="marquee-title">RETRO BLAST</h1>
+              <div class="marquee-subtitle">ARCADE EDITION</div>
+            </div>
+            <div class="marquee-corner-notch tl"></div>
+            <div class="marquee-corner-notch tr"></div>
+          </div>
+
+          <!-- Cabinet Screen & Bezel Area -->
+          <div class="cabinet-screen-area">
+            <!-- Screen Neon Frame Lines -->
+            <div class="screen-bezel-frame">
+              <!-- Upper Screen Geometric Wireframe Elements -->
+              <div class="screen-bg-wireframe">
+                <div class="screen-holo-shape s1"></div>
+                <div class="screen-holo-shape s2"></div>
+                <div class="screen-holo-shape s3"></div>
+              </div>
+
+              <!-- 4 Horizontal Round Cards (side-by-side) -->
+              <div class="round-cards-container">
+                <!-- Round 1 Card -->
+                <div class="round-card round-card-1">
+                  <div class="card-header">[ ROUND 01 ]</div>
+                  <h3 class="card-title">GRID CLEAR</h3>
+                  <p class="card-desc">3 waves: 5, 5, then 10 simultaneous targets.</p>
+                  <div class="card-pills">
+                    <span class="card-pill pill-diff diff-easy">EASY</span>
+                    <span class="card-pill pill-targets">20 TARGETS</span>
+                    <span class="card-pill pill-ammo">∞ AMMO</span>
+                  </div>
+                </div>
+
+                <!-- Round 2 Card -->
+                <div class="round-card round-card-2">
+                  <div class="card-header">[ ROUND 02 ]</div>
+                  <h3 class="card-title">REFLEX SNAP</h3>
+                  <p class="card-desc">Fast single-target reflex spawns, instant respawn on hit.</p>
+                  <div class="card-pills">
+                    <span class="card-pill pill-diff diff-easy">EASY</span>
+                    <span class="card-pill pill-targets">30 TARGETS</span>
+                    <span class="card-pill pill-ammo">30 AMMO</span>
+                  </div>
+                </div>
+
+                <!-- Round 3 Card -->
+                <div class="round-card round-card-3">
+                  <div class="card-header">[ ROUND 03 ]</div>
+                  <h3 class="card-title">KINETIC DRIFT</h3>
+                  <p class="card-desc">2 waves of 10 moving targets with 1.5x &amp; 2.0x speed scaling.</p>
+                  <div class="card-pills">
+                    <span class="card-pill pill-diff diff-moderate">MODERATE</span>
+                    <span class="card-pill pill-targets">20 TARGETS</span>
+                    <span class="card-pill pill-ammo">20 AMMO</span>
+                  </div>
+                </div>
+
+                <!-- Round 4 Card (Highlighted Active) -->
+                <div class="round-card round-card-4 active">
+                  <div class="card-header">[ ROUND 04 ]</div>
+                  <h3 class="card-title">TIME &amp; HAZARDS</h3>
+                  <p class="card-desc">30 Targets + 18 Bombs (shuffled). 1.0s target / 0.75s bomb despawn!</p>
+                  <div class="card-pills">
+                    <span class="card-pill pill-diff diff-hard">HARD</span>
+                    <span class="card-pill pill-target-pt">TARGET: +1</span>
+                    <span class="card-pill pill-hazard-pt">BOMB: -2</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cabinet Slanted Control Panel Deck -->
+          <div class="cabinet-control-deck">
+            <!-- Perspective Neon Rays Burst behind CTA Button -->
+            <div class="neon-light-rays" aria-hidden="true">
+              <span class="ray r1"></span>
+              <span class="ray r2"></span>
+              <span class="ray r3"></span>
+              <span class="ray r4"></span>
+              <span class="ray r5"></span>
+              <span class="ray r6"></span>
+              <span class="ray r7"></span>
+            </div>
+
+            <!-- "LET'S BEGIN ⚡" CTA Button -->
+            <div class="cta-button-wrap">
+              <button id="btn-start" class="btn-arcade-start" type="button">
+                <span class="btn-start-text">LET'S BEGIN</span>
+                <span class="btn-start-icon">⚡</span>
+              </button>
+            </div>
+
+            <!-- Slanted Surface: Red Crystal Joystick & 4 Illuminated Push Buttons -->
+            <div class="deck-controls-surface">
+              <!-- Joystick -->
+              <div class="arcade-joystick">
+                <div class="stick-base-ring"></div>
+                <div class="stick-shaft"></div>
+                <div class="stick-ball-crystal"></div>
+              </div>
+
+              <!-- 4 Illuminated Push Buttons: X (Cyan), B (Yellow), C (Magenta), Z (Green) -->
+              <div class="arcade-push-buttons">
+                <div class="arcade-btn btn-x" title="Button X">
+                  <span class="btn-cap">X</span>
+                  <span class="btn-ring"></span>
+                </div>
+                <div class="arcade-btn btn-b" title="Button B">
+                  <span class="btn-cap">B</span>
+                  <span class="btn-ring"></span>
+                </div>
+                <div class="arcade-btn btn-c" title="Button C">
+                  <span class="btn-cap">C</span>
+                  <span class="btn-ring"></span>
+                </div>
+                <div class="arcade-btn btn-z" title="Button Z">
+                  <span class="btn-cap">Z</span>
+                  <span class="btn-ring"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cabinet Lower Front: Dual "25¢" Coin Slots -->
+          <div class="cabinet-coin-section">
+            <div class="coin-slot-box">
+              <div class="coin-insert-slot"></div>
+              <span class="coin-label">25¢</span>
+            </div>
+            <div class="coin-slot-box">
+              <div class="coin-insert-slot"></div>
+              <span class="coin-label">25¢</span>
+            </div>
+          </div>
+
+          <!-- Bottom Footer Keybinds Bar -->
+          <div class="cabinet-footer-keybinds">
+            <div class="keybind-pill">
+              <span class="key-name">LEFT CLICK</span>
+              <span class="key-action">FIRE</span>
+            </div>
+            <div class="keybind-pill" id="btn-toggle-sound" role="button" tabindex="0">
+              <span class="key-name">M</span>
+              <span class="key-action" id="sound-status-label">MUTE</span>
+            </div>
+            <div class="keybind-pill">
+              <span class="key-name">SPACE</span>
+              <span class="key-action">PAUSE</span>
+            </div>
+            <a href="index.html" class="keybind-pill" style="text-decoration: none; color: inherit;" title="Return to ARCADE Tournament Platform">
+              <span class="key-name">ESC / HOME</span>
+              <span class="key-action">TOURNAMENT</span>
+            </a>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Hidden elements for audio toggles and high scores if needed -->
+      <div class="menu-sub-meta hidden">
+        <span id="menu-high-score">0000</span>
+        <span id="sound-status">ON</span>
+        <span id="sound-icon">🔊</span>
+        <span id="music-status">ON</span>
+        <span id="music-icon">🎵</span>
+      </div>
+    </section>
+
+
+    <!-- ============================================== -->
+    <!-- 2. GAMEPLAY SCREEN: FIRST-PERSON PERSPECTIVE    -->
+    <!-- ============================================== -->
+    <section id="screen-gameplay" class="screen screen-gameplay">
+
+      <!-- FPV Background Synthwave Grid Arena -->
+      <div class="arena-background">
+        <!-- Twinkling Starfield -->
+        <canvas id="starfield-canvas" class="starfield-canvas"></canvas>
+
+        <!-- Synth Horizon, Neon Sun & Mountains -->
+        <div class="gameplay-horizon">
+          <div class="game-synth-sun"></div>
+          <div class="game-mountains-back"></div>
+          <div class="game-mountains"></div>
+          <div class="horizon-glow"></div>
+        </div>
+
+        <!-- 3D Infinite Perspective Floor Grid -->
+        <div class="perspective-floor">
+          <div class="floor-grid-lines"></div>
+        </div>
+
+        <!-- Arena Wall Neon Boundaries -->
+        <div class="arena-boundary-frame">
+          <div class="bound-corner tl"></div>
+          <div class="bound-corner tr"></div>
+          <div class="bound-corner bl"></div>
+          <div class="bound-corner br"></div>
+          <div class="grid-crossline-h"></div>
+          <div class="grid-crossline-v"></div>
+        </div>
+      </div>
+
+      <!-- Target Playfield Layer (Spawns, Laser Projectiles, Explosions) -->
+      <div id="target-arena" class="target-arena">
+        <canvas id="fx-canvas" class="fx-canvas"></canvas>
+      </div>
+
+      <!-- HUD Overlay (Top-Center Fixed Neon Cyber Bar) -->
+      <header class="hud-container">
+        <div class="hud-panel">
+          <div class="hud-corner-accent tl"></div>
+          <div class="hud-corner-accent tr"></div>
+          <div class="hud-corner-accent bl"></div>
+          <div class="hud-corner-accent br"></div>
+
+          <div class="hud-item hud-score">
+            <span class="hud-label">SCORE</span>
+            <span id="hud-score-val" class="hud-value hud-glow-cyan">0</span>
+          </div>
+
+          <div class="hud-divider"></div>
+
+          <div class="hud-item hud-round">
+            <span class="hud-label">ROUND</span>
+            <div class="hud-round-indicator">
+              <span id="hud-round-val" class="hud-value hud-glow-pink">1/3</span>
+              <span id="hud-round-name" class="hud-sub-label">GRID CLEAR</span>
+            </div>
+          </div>
+
+          <div class="hud-divider"></div>
+
+          <div class="hud-item hud-ammo">
+            <span class="hud-label">AMMO</span>
+            <span id="hud-ammo-val" class="hud-value hud-glow-green">∞</span>
+          </div>
+
+          <div class="hud-divider"></div>
+
+          <div class="hud-item hud-targets">
+            <span class="hud-label">TARGETS LEFT</span>
+            <span id="hud-targets-val" class="hud-value hud-glow-yellow">20</span>
+          </div>
+
+          <div class="hud-divider"></div>
+
+          <div class="hud-item hud-accuracy">
+            <span class="hud-label">ACCURACY</span>
+            <span id="hud-accuracy-val" class="hud-value">100%</span>
+          </div>
+        </div>
+
+        <!-- Wave / Streak Tracker Pill -->
+        <div class="hud-subbar">
+          <div id="hud-wave-tag" class="hud-pill wave-pill">WAVE 1 OF 3</div>
+          <div id="hud-streak-tag" class="hud-pill streak-pill hidden">3X STREAK!</div>
+        </div>
+      </header>
+
+      <!-- Floating In-Game Ammo Over Banner Notification -->
+      <div id="ammo-over-banner" class="ammo-over-banner hidden" aria-live="assertive">
+        <div class="ammo-over-title">AMMO OVER</div>
+        <div class="ammo-over-sub" id="ammo-over-sub">0 TARGETS REMAINING</div>
+      </div>
+
+      <!-- FPV First-Person 3D Weapon & Hand Rig (Bottom-Right Foreground) -->
+      <div id="fpv-weapon-rig" class="fpv-weapon-rig">
+        <div class="weapon-container">
+          <!-- 3D WebGL Canvas for Three.js Raygun Weapon Model -->
+          <canvas id="fpv-three-canvas" class="fpv-three-canvas"></canvas>
+
+          <!-- Muzzle Flash FX Emitter -->
+          <div id="muzzle-flash" class="muzzle-flash">
+            <div class="flash-core"></div>
+            <div class="flash-sparks"></div>
+            <div class="flash-ring"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- In-Game Quick Action Bar (Top Right) -->
+      <div class="ingame-controls">
+        <button id="btn-ingame-pause" class="hud-icon-btn" title="Pause Game (Space)">⏸</button>
+        <button id="btn-ingame-sound" class="hud-icon-btn" title="Toggle Sound (M)">🔊</button>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- 3. PRE-ROUND COUNTDOWN OVERLAY                -->
+    <!-- ============================================== -->
+    <div id="countdown-overlay" class="modal-overlay hidden">
+      <div class="countdown-card">
+        <div class="countdown-badge" id="countdown-round-badge">ROUND 01</div>
+        <h2 class="countdown-round-title" id="countdown-round-title">GRID CLEAR</h2>
+        <p class="countdown-desc" id="countdown-round-desc">3 Waves: 5, 5 &amp; 10 Simultaneous Targets</p>
+        <div class="countdown-number-box">
+          <span id="countdown-digit" class="countdown-digit">3</span>
+        </div>
+        <div class="countdown-bar-wrap">
+          <div id="countdown-progress" class="countdown-progress"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- 4. ROUND INTERMISSION MODAL                    -->
+    <!-- ============================================== -->
+    <div id="intermission-overlay" class="modal-overlay hidden">
+      <div class="intermission-card">
+        <div class="arcade-badge">ROUND COMPLETE</div>
+        <h2 id="intermission-title" class="intermission-title">WAVE CLEARED!</h2>
+        <div class="intermission-stats">
+          <div class="istat-row"><span>HITS:</span> <strong id="istat-hits">20</strong></div>
+          <div class="istat-row"><span>ACCURACY:</span> <strong id="istat-accuracy">100%</strong></div>
+          <div class="istat-row"><span>SCORE:</span> <strong id="istat-score">20</strong></div>
+        </div>
+        <p class="intermission-next">PREPARING NEXT ROUND IN <span id="intermission-timer">3</span>...</p>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- 5. PAUSE MODAL                                 -->
+    <!-- ============================================== -->
+    <div id="pause-overlay" class="modal-overlay hidden">
+      <div class="pause-card">
+        <h2 class="pause-title">SIMULATION PAUSED</h2>
+        <div class="pause-options">
+          <button id="btn-resume" class="btn-neon-action" type="button">
+            <span class="btn-inner"><span class="btn-label">RESUME</span></span>
+          </button>
+          <button id="btn-quit" class="btn-neon-secondary" type="button">
+            <span class="btn-inner"><span class="btn-label">ABORT MISSION</span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- 6. GAME OVER / ARCADE RESULTS SCREEN           -->
+    <!-- ============================================== -->
+    <section id="screen-gameover" class="screen screen-gameover hidden">
+      <div class="gameover-card">
+        <div class="card-corner tl"></div>
+        <div class="card-corner tr"></div>
+        <div class="card-corner bl"></div>
+        <div class="card-corner br"></div>
+
+        <header class="gameover-header">
+          <div id="new-high-score-banner" class="high-score-pill hidden">★ NEW HIGH SCORE! ★</div>
+          <h2 class="gameover-title">MISSION COMPLETE</h2>
+          <p class="gameover-subtitle">COMBAT PERFORMANCE EVALUATION</p>
+        </header>
+
+        <!-- Final Rank & Score Banner -->
+        <div class="rank-score-display">
+          <div class="final-rank-stamp">
+            <span class="rank-label">COMBAT RANK</span>
+            <div id="final-rank-grade" class="rank-grade grade-s">S</div>
+            <span id="rank-title" class="rank-text">CYBER SHARPSHOOTER</span>
+          </div>
+
+          <div class="final-score-box">
+            <span class="score-label">FINAL SCORE</span>
+            <div id="final-score-val" class="score-number">0000</div>
+            <span class="high-score-compare">HIGH SCORE: <strong id="final-high-score">0000</strong></span>
+          </div>
+        </div>
+
+        <!-- Detailed Statistics Breakdown Grid -->
+        <div class="stats-table">
+          <div class="stat-cell">
+            <span class="stat-name">OVERALL ACCURACY</span>
+            <span id="stat-accuracy" class="stat-val stat-cyan">0%</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-name">TOTAL SHOTS FIRED</span>
+            <span id="stat-shots" class="stat-val">0</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-name">TARGETS HIT</span>
+            <span id="stat-hits" class="stat-val stat-green">0</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-name">TARGETS MISSED</span>
+            <span id="stat-missed" class="stat-val stat-red">0</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-name">BOMBS AVOIDED</span>
+            <span id="stat-bombs-avoided" class="stat-val stat-green">0/18</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-name">BOMBS DETONATED</span>
+            <span id="stat-bombs-hit" class="stat-val stat-red">0</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-name">BEST STREAK</span>
+            <span id="stat-best-streak" class="stat-val stat-yellow">0</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-name">AVG REACTION TIME</span>
+            <span id="stat-reaction-time" class="stat-val">0 ms</span>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="gameover-actions">
+          <button id="btn-play-again" class="btn-neon-action" type="button">
+            <span class="btn-inner">
+              <span class="btn-label">PLAY AGAIN</span>
+              <span class="btn-icon">↺</span>
+            </span>
+            <span class="btn-glow-border"></span>
+          </button>
+
+          <button id="btn-return-menu" class="btn-neon-secondary" type="button">
+            <span class="btn-inner">
+              <span class="btn-label">MAIN MENU</span>
+              <span class="btn-icon">⌂</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Custom Crosshair Cursor Element -->
+  <div id="custom-crosshair" class="custom-crosshair" aria-hidden="true">
+    <div class="crosshair-center-dot"></div>
+    <div class="crosshair-inner-ring"></div>
+    <div class="crosshair-outer-ring"></div>
+    <div class="crosshair-tick tick-top"></div>
+    <div class="crosshair-tick tick-bottom"></div>
+    <div class="crosshair-tick tick-left"></div>
+    <div class="crosshair-tick tick-right"></div>
+    <div class="crosshair-hitmark hitmark-1"></div>
+    <div class="crosshair-hitmark hitmark-2"></div>
+    <div class="crosshair-hitmark hitmark-3"></div>
+    <div class="crosshair-hitmark hitmark-4"></div>
+  </div>
+
+  <!-- Scripts -->
+  <script defer src="retro.js"></script>
+</body>
+
+</html>

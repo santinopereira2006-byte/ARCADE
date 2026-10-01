@@ -1,0 +1,364 @@
+/* ==========================================================
+   ARCADE NEON — Arcade-room restyle overlay
+   Linked LAST so it overrides the base cyberpunk theme.
+   Goal: neon-arcade-cabinet look (glowing rounded panels,
+   magenta/cyan/purple/green rims, dark reflective room bg).
+   ========================================================== */
+
+:root {
+  --nb-magenta: #ff2bd6;
+  --nb-cyan: #00e5ff;
+  --nb-purple: #a855f7;
+  --nb-green: #39ff14;
+  --nb-pink: #ff4fd8;
+  --nb-yellow: #ffe600;
+  --nb-ink: #081018;
+  --nb-panel: rgba(6, 10, 24, 0.84);
+  --nb-panel-soft: rgba(6, 10, 24, 0.66);
+}
+
+/* ---------- Room background (swaps per round) ---------- */
+body {
+  --bg-img: url("../assets/arcade-room-bg.png");
+  background-color: #04060d;
+  background-image:
+    radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.30) 52%, rgba(2, 4, 10, 0.72) 100%),
+    var(--bg-img);
+  background-size: cover, cover;
+  background-position: center, center;
+  background-attachment: fixed, fixed;
+  background-repeat: no-repeat, no-repeat;
+}
+
+body[data-round-bg="1"] { --bg-img: url("../assets/bg-round1.png"); }
+body[data-round-bg="2"] { --bg-img: url("../assets/bg-round2.png"); }
+body[data-round-bg="3"] { --bg-img: url("../assets/bg-round3.png"); }
+body[data-round-bg="4"] { --bg-img: url("../assets/bg-round4.png"); }
+body[data-round-bg="5"] { --bg-img: url("../assets/bg-round5.png"); }
+
+/* Soften the old scanline grid so the room photo reads through */
+.cyber-grid-overlay {
+  opacity: 0.25;
+}
+
+/* ---------- Shared neon panel ---------- */
+.cyber-modal,
+.game-instruction-banner,
+.hud-bar-main,
+.hud-timer-card,
+.meme-graphic-card,
+.graphic-canvas-box,
+.character-card,
+.character-spotlight-card,
+.estimation-input-card,
+.code-editor-card,
+.blackout-mission-bar {
+  background: var(--nb-panel);
+  border: 2px solid var(--nb-cyan);
+  border-radius: 16px;
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.28), inset 0 0 26px rgba(0, 229, 255, 0.05);
+  backdrop-filter: blur(6px);
+}
+
+/* ---------- HUD ---------- */
+.game-hud-top {
+  background: transparent;
+}
+
+.hud-bar-main {
+  border-color: var(--nb-cyan);
+}
+
+.hud-logo {
+  font-family: 'Orbitron', sans-serif;
+  font-style: italic;
+  font-weight: 900;
+  background: linear-gradient(90deg, var(--nb-cyan), var(--nb-magenta));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 0 8px rgba(255, 43, 214, 0.55));
+}
+
+.hud-subtrack {
+  color: var(--nb-cyan);
+  letter-spacing: 2px;
+}
+
+.hud-round-badge {
+  background: var(--nb-magenta);
+  color: var(--nb-ink);
+  border: none;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  padding: 0.45em 1.8em;
+  clip-path: polygon(9% 0, 91% 0, 100% 50%, 91% 100%, 9% 100%, 0 50%);
+  box-shadow: 0 0 18px rgba(255, 43, 214, 0.6);
+  text-shadow: none;
+}
+
+.hud-q-tracker {
+  color: var(--nb-cyan);
+  font-weight: 700;
+}
+
+.hud-team-badge {
+  border: 2px solid var(--nb-cyan);
+  border-radius: 8px;
+  color: var(--nb-cyan);
+  background: rgba(0, 229, 255, 0.08);
+}
+
+.hud-score-badge {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 1.35rem;
+  color: var(--nb-yellow);
+  text-shadow: 0 0 12px rgba(255, 230, 0, 0.6);
+}
+
+.hud-max-badge {
+  color: #9fb6c9;
+}
+
+.hud-timer-card {
+  border-color: var(--nb-magenta);
+  box-shadow: 0 0 16px rgba(255, 43, 214, 0.35), inset 0 0 20px rgba(255, 43, 214, 0.06);
+}
+
+/* ---------- Question banner ---------- */
+.game-instruction-banner {
+  text-align: center;
+  position: relative;
+}
+
+.game-instruction-banner .game-badge {
+  color: var(--nb-cyan);
+  letter-spacing: 2px;
+}
+
+.game-headline {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #ffffff;
+  text-shadow: 0 0 14px rgba(0, 229, 255, 0.55);
+}
+
+.game-sub {
+  color: #cfe3f5;
+  font-weight: 600;
+}
+
+/* ---------- Option grids (Rounds 1/2/3) ---------- */
+.meme-options-grid,
+.tech-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.btn-choice-opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--nb-panel);
+  border: 2px solid var(--nb-cyan);
+  border-radius: 14px;
+  color: #eaf6ff;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  text-align: left;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.22);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.btn-choice-opt:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+/* Neon rim colour cycling: magenta, cyan, green, pink */
+.btn-choice-opt:nth-child(4n+1) { border-color: var(--nb-magenta); box-shadow: 0 0 14px rgba(255, 43, 214, 0.35); }
+.btn-choice-opt:nth-child(4n+2) { border-color: var(--nb-cyan);    box-shadow: 0 0 14px rgba(0, 229, 255, 0.35); }
+.btn-choice-opt:nth-child(4n+3) { border-color: var(--nb-green);   box-shadow: 0 0 14px rgba(57, 255, 20, 0.30); }
+.btn-choice-opt:nth-child(4n+4) { border-color: var(--nb-pink);    box-shadow: 0 0 14px rgba(255, 79, 216, 0.35); }
+
+.opt-prefix {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  color: var(--nb-ink);
+  background: var(--nb-cyan);
+}
+
+.btn-choice-opt:nth-child(4n+1) .opt-prefix { background: var(--nb-magenta); box-shadow: 0 0 10px var(--nb-magenta); }
+.btn-choice-opt:nth-child(4n+2) .opt-prefix { background: var(--nb-cyan);    box-shadow: 0 0 10px var(--nb-cyan); }
+.btn-choice-opt:nth-child(4n+3) .opt-prefix { background: var(--nb-green);   box-shadow: 0 0 10px var(--nb-green); }
+.btn-choice-opt:nth-child(4n+4) .opt-prefix { background: var(--nb-pink);    box-shadow: 0 0 10px var(--nb-pink); }
+
+.opt-text,
+.opt-label {
+  flex: 1 1 auto;
+}
+
+.opt-stake {
+  margin-left: auto;
+  color: var(--nb-yellow);
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 800;
+  text-shadow: 0 0 8px rgba(255, 230, 0, 0.5);
+}
+
+/* ---------- Graphic / meme stage ---------- */
+.meme-graphic-card,
+.graphic-canvas-box {
+  border-color: var(--nb-magenta);
+  box-shadow: 0 0 22px rgba(255, 43, 214, 0.35), inset 0 0 26px rgba(255, 43, 214, 0.05);
+}
+
+/* ---------- Buttons ---------- */
+.btn-primary-gaming {
+  background: linear-gradient(90deg, #7a1fff, var(--nb-magenta));
+  border: none;
+  border-radius: 12px;
+  color: #ffffff;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 800;
+  letter-spacing: 1px;
+  box-shadow: 0 0 18px rgba(255, 43, 214, 0.45);
+}
+
+.btn-primary-gaming:hover:not(:disabled) {
+  box-shadow: 0 0 26px rgba(255, 43, 214, 0.7);
+}
+
+.btn-secondary-gaming {
+  background: rgba(0, 229, 255, 0.06);
+  border: 2px solid var(--nb-cyan);
+  border-radius: 12px;
+  color: var(--nb-cyan);
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+}
+
+.btn-arcade-pass {
+  background: rgba(6, 10, 24, 0.8);
+  border: 2px solid #4d6b85;
+  border-radius: 12px;
+  color: #bcd6e8;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+}
+
+.btn-arcade-pass:hover:not(:disabled) {
+  border-color: var(--nb-cyan);
+  color: var(--nb-cyan);
+}
+
+/* ---------- Footer / pass row ---------- */
+.game-action-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---------- Blackout code editor ---------- */
+.blackout-mission-bar {
+  border-color: var(--nb-purple);
+  box-shadow: 0 0 18px rgba(168, 85, 247, 0.32);
+}
+
+.code-editor-card {
+  border-color: var(--nb-purple);
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.28);
+}
+
+/* ---------- Answer / practice reveal panels ---------- */
+.answer-reveal-panel {
+  background: var(--nb-panel);
+  border: 2px solid var(--nb-green);
+  border-radius: 16px;
+  box-shadow: 0 0 20px rgba(57, 255, 20, 0.3);
+  backdrop-filter: blur(6px);
+}
+
+/* ---------- Briefing & practice cards inherit modal glow ---------- */
+.round-briefing-card,
+.practice-complete-card {
+  border-color: var(--nb-purple);
+  box-shadow: 0 0 30px rgba(168, 85, 247, 0.4);
+}
+
+/* ==========================================================
+   PARTICIPANT-MODE (gameplay) OVERRIDES
+   The base theme scopes gameplay styles under
+   `body.participant-mode …`, which out-specifies the plain
+   selectors above. Re-assert the neon look at equal-or-higher
+   specificity so it wins during actual rounds.
+   ========================================================== */
+body.participant-mode .game-instruction-banner,
+body.participant-mode .hud-bar-main,
+body.participant-mode .hud-timer-card,
+body.participant-mode .meme-graphic-card,
+body.participant-mode .graphic-canvas-box,
+body.participant-mode .character-card,
+body.participant-mode .character-spotlight-card,
+body.participant-mode .estimation-input-card,
+body.participant-mode .code-editor-card,
+body.participant-mode .blackout-mission-bar {
+  background: var(--nb-panel);
+  border: 2px solid var(--nb-cyan);
+  border-radius: 16px;
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.28), inset 0 0 26px rgba(0, 229, 255, 0.05);
+  backdrop-filter: blur(6px);
+}
+
+body.participant-mode .meme-graphic-card,
+body.participant-mode .graphic-canvas-box {
+  border-color: var(--nb-magenta);
+  box-shadow: 0 0 22px rgba(255, 43, 214, 0.35), inset 0 0 26px rgba(255, 43, 214, 0.05);
+}
+
+body.participant-mode .blackout-mission-bar,
+body.participant-mode .code-editor-card {
+  border-color: var(--nb-purple);
+  box-shadow: 0 0 18px rgba(168, 85, 247, 0.32);
+}
+
+body.participant-mode .game-headline {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #ffffff;
+  text-shadow: 0 0 14px rgba(0, 229, 255, 0.55);
+}
+
+body.participant-mode .hud-round-badge {
+  background: var(--nb-magenta);
+  color: var(--nb-ink);
+  border: none;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  padding: 0.45em 1.8em;
+  clip-path: polygon(9% 0, 91% 0, 100% 50%, 91% 100%, 9% 100%, 0 50%);
+  box-shadow: 0 0 18px rgba(255, 43, 214, 0.6);
+  text-shadow: none;
+}
+
+body.participant-mode .hud-score-badge {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 1.35rem;
+  color: var(--nb-yellow);
+  text-shadow: 0 0 12px rgba(255, 230, 0, 0.6);
+}
+

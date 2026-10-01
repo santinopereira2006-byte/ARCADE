@@ -1,0 +1,11 @@
+Model Information:
+* title:	Megatron | Transformers 2007 | Rigged
+* source:	https://sketchfab.com/3d-models/megatron-transformers-2007-rigged-2d0530b00e3241ee854cf1824b470cd5
+* author:	K Animator (https://sketchfab.com/kanimator)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Megatron | Transformers 2007 | Rigged" (https://sketchfab.com/3d-models/megatron-transformers-2007-rigged-2d0530b00e3241ee854cf1824b470cd5) by K Animator (https://sketchfab.com/kanimator) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

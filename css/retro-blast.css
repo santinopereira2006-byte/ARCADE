@@ -1,0 +1,907 @@
+/* ==========================================================================
+   RETRO BLAST - CYBERPUNK AIM REFLEX SIMULATOR (ROUND 5)
+   Cleanly scoped stylesheet for ARCADE Tournament Platform
+   ========================================================================== */
+
+:root {
+  /* Retrowave Palette */
+  --rb-bg-deep: #0d0221;
+  --rb-bg-card: rgba(13, 2, 33, 0.88);
+  --rb-neon-cyan: #00fdfa;
+  --rb-neon-magenta: #f600ff;
+  --rb-neon-pink: #ff007f;
+  --rb-neon-green: #39ff14;
+  --rb-danger-red: #ff003c;
+  --rb-neon-yellow: #ffe600;
+  --rb-neon-orange: #ff7700;
+
+  /* Glows */
+  --rb-glow-cyan: 0 0 10px #00fdfa, 0 0 20px rgba(0, 253, 250, 0.6);
+  --rb-glow-magenta: 0 0 10px #f600ff, 0 0 25px rgba(246, 0, 255, 0.6);
+}
+
+/* ==========================================================================
+   CUSTOM CROSSHAIR CURSOR (Visible only during Retro Blast)
+   ========================================================================== */
+.custom-crosshair {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10000;
+  display: none;
+  transition: transform 0.05s ease-out;
+}
+
+body.in-gameplay .custom-crosshair {
+  display: block;
+}
+
+body.in-gameplay .retro-blast-arena,
+body.in-gameplay .retro-blast-arena * {
+  cursor: none !important;
+}
+
+.crosshair-center-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  background: #ffffff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 6px #00fdfa;
+}
+
+.crosshair-inner-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--rb-neon-cyan);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 8px rgba(0, 253, 250, 0.6);
+}
+
+.crosshair-outer-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 38px;
+  height: 38px;
+  border: 1px dashed rgba(246, 0, 255, 0.6);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: crosshairSpin 10s linear infinite;
+}
+
+@keyframes crosshairSpin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.crosshair-tick {
+  position: absolute;
+  background: var(--rb-neon-cyan);
+  box-shadow: 0 0 6px var(--rb-neon-cyan);
+}
+
+.crosshair-tick.tick-top { top: 0; left: 50%; width: 2px; height: 7px; transform: translateX(-50%); }
+.crosshair-tick.tick-bottom { bottom: 0; left: 50%; width: 2px; height: 7px; transform: translateX(-50%); }
+.crosshair-tick.tick-left { left: 0; top: 50%; width: 7px; height: 2px; transform: translateY(-50%); }
+.crosshair-tick.tick-right { right: 0; top: 50%; width: 7px; height: 2px; transform: translateY(-50%); }
+
+.crosshair-recoil .crosshair-inner-ring {
+  transform: translate(-50%, -50%) scale(1.35);
+  border-color: #ffffff;
+}
+
+.hazard-lock .crosshair-inner-ring {
+  border-color: var(--rb-danger-red) !important;
+  box-shadow: 0 0 12px var(--rb-danger-red) !important;
+}
+
+/* ==========================================================================
+   MAIN RETRO BLAST ARENA CONTAINER
+   ========================================================================== */
+.retro-blast-arena {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 130px);
+  min-height: 620px;
+  max-height: 840px;
+  perspective: 1200px;
+  overflow: hidden;
+  background-color: var(--rb-bg-deep);
+  border-radius: 12px;
+  border: 1.5px solid rgba(0, 253, 250, 0.5);
+  box-shadow: 0 0 35px rgba(0, 253, 250, 0.25), inset 0 0 50px rgba(13, 2, 33, 0.9);
+  color: #ffffff;
+  user-select: none;
+}
+
+/* CRT Overlays inside arena */
+.retro-blast-arena .crt-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%),
+              linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+  background-size: 100% 4px, 6px 100%;
+  opacity: 0.75;
+}
+
+.retro-blast-arena .crt-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 39;
+  pointer-events: none;
+  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.85), inset 0 0 140px rgba(13, 2, 33, 0.95);
+}
+
+.retro-blast-arena .screen-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle, rgba(255, 0, 60, 0.5) 0%, rgba(255, 0, 60, 0.9) 100%);
+  transition: opacity 0.08s ease-out;
+}
+
+/* ==========================================================================
+   SYNTHWAVE 3D HORIZON & ARENA BACKGROUND
+   ========================================================================== */
+.retro-blast-arena .arena-background {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.retro-blast-arena .starfield-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.retro-blast-arena .gameplay-horizon {
+  position: absolute;
+  top: 45%;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  z-index: 2;
+}
+
+.retro-blast-arena .game-synth-sun {
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  width: 240px;
+  height: 240px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: linear-gradient(to bottom, #ffe600 0%, #ff007f 70%, #f600ff 100%);
+  box-shadow: 0 0 50px rgba(246, 0, 255, 0.7), 0 0 80px rgba(255, 230, 0, 0.3);
+  opacity: 0.75;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 60%, transparent 61%, #000 66%, transparent 68%, #000 73%, transparent 76%, #000 82%, transparent 86%, #000 92%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 60%, transparent 61%, #000 66%, transparent 68%, #000 73%, transparent 76%, #000 82%, transparent 86%, #000 92%, transparent 100%);
+}
+
+.retro-blast-arena .game-mountains {
+  position: absolute;
+  bottom: 0;
+  left: -10%;
+  width: 120%;
+  height: 100px;
+  background:
+    linear-gradient(135deg, transparent 75%, #190a38 75%),
+    linear-gradient(225deg, transparent 75%, #190a38 75%);
+  background-size: 120px 100px, 120px 100px;
+  border-bottom: 2px solid var(--rb-neon-cyan);
+  box-shadow: 0 0 15px var(--rb-neon-cyan);
+  opacity: 0.85;
+}
+
+.retro-blast-arena .horizon-glow {
+  position: absolute;
+  bottom: -10px;
+  left: 0;
+  width: 100%;
+  height: 30px;
+  background: linear-gradient(to top, rgba(0, 253, 250, 0.35) 0%, transparent 100%);
+  filter: blur(8px);
+}
+
+.retro-blast-arena .perspective-floor {
+  position: absolute;
+  top: 45%;
+  left: -80%;
+  width: 260%;
+  height: 150%;
+  transform: rotateX(75deg);
+  transform-origin: top center;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.retro-blast-arena .floor-grid-lines {
+  width: 100%;
+  height: 300%;
+  background-image:
+    linear-gradient(to right, rgba(0, 253, 250, 0.35) 2px, transparent 2px),
+    linear-gradient(to bottom, rgba(246, 0, 255, 0.35) 2px, transparent 2px);
+  background-size: 60px 60px;
+  animation: rbFloorMove 4s linear infinite;
+  box-shadow: inset 0 0 100px rgba(13, 2, 33, 0.9);
+}
+
+@keyframes rbFloorMove {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(60px); }
+}
+
+.retro-blast-arena .arena-boundary-frame {
+  position: absolute;
+  inset: 15px;
+  border: 1px solid rgba(0, 253, 250, 0.3);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.retro-blast-arena .bound-corner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-color: var(--rb-neon-cyan);
+  border-style: solid;
+}
+.retro-blast-arena .bound-corner.tl { top: -2px; left: -2px; border-width: 3px 0 0 3px; }
+.retro-blast-arena .bound-corner.tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; }
+.retro-blast-arena .bound-corner.bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; }
+.retro-blast-arena .bound-corner.br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; }
+
+.retro-blast-arena .grid-crossline-h {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 253, 250, 0.25), transparent);
+}
+.retro-blast-arena .grid-crossline-v {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(180deg, transparent, rgba(246, 0, 255, 0.25), transparent);
+}
+
+/* ==========================================================================
+   TARGET ARENA & TARGET OBJECTS
+   ========================================================================== */
+.retro-blast-arena .target-arena {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.retro-blast-arena .fx-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 15;
+  pointer-events: none;
+}
+
+/* Interactive Neon Target Element */
+.retro-blast-arena .game-target {
+  position: absolute;
+  width: 76px;
+  height: 76px;
+  transform: translate(-50%, -50%);
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  cursor: none !important;
+  pointer-events: auto;
+  opacity: 1 !important;
+  visibility: visible !important;
+  animation: targetSpawnIn 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  transition: transform 0.08s ease-out;
+}
+
+.retro-blast-arena .game-target:hover {
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+@keyframes targetSpawnIn {
+  0% { transform: translate(-50%, -50%) scale(0) rotate(-45deg); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+}
+
+.retro-blast-arena .target-graphic {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.retro-blast-arena .target-graphic * {
+  pointer-events: none;
+}
+
+/* Pulsating Neon Cyan Outer Ring */
+.retro-blast-arena .target-outer-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid var(--rb-neon-cyan);
+  box-shadow: 0 0 18px var(--rb-neon-cyan), 0 0 35px rgba(0, 253, 250, 0.6), inset 0 0 16px rgba(0, 253, 250, 0.5);
+  animation: targetPulse 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes targetPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 12px var(--rb-neon-cyan), inset 0 0 10px rgba(0, 253, 250, 0.4);
+    opacity: 0.88;
+  }
+  100% {
+    transform: scale(1.05);
+    box-shadow: 0 0 26px var(--rb-neon-cyan), 0 0 45px rgba(0, 253, 250, 0.7), inset 0 0 20px rgba(0, 253, 250, 0.6);
+    opacity: 1;
+  }
+}
+
+/* Rotating Dashed Magenta Geo Ring */
+.retro-blast-arena .target-geo-ring {
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  border: 2px dashed var(--rb-neon-magenta);
+  box-shadow: 0 0 12px var(--rb-neon-magenta);
+  animation: rotateClockwise 6s linear infinite;
+}
+
+@keyframes rotateClockwise {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes rotateCounter {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
+/* Inner Cyan Ring */
+.retro-blast-arena .target-inner-ring {
+  position: absolute;
+  inset: 19px;
+  border-radius: 50%;
+  border: 2.5px solid var(--rb-neon-cyan);
+  box-shadow: 0 0 12px var(--rb-neon-cyan);
+  background: rgba(0, 253, 250, 0.18);
+}
+
+/* Intense Glowing White/Cyan Core */
+.retro-blast-arena .target-core {
+  position: absolute;
+  inset: 27px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 0%, var(--rb-neon-cyan) 60%, rgba(0, 253, 250, 0.25) 100%);
+  box-shadow: 0 0 15px #ffffff, 0 0 30px var(--rb-neon-cyan), 0 0 45px var(--rb-neon-cyan);
+}
+
+/* Target Crosshairs */
+.retro-blast-arena .target-cross {
+  position: absolute;
+  background: var(--rb-neon-cyan);
+  box-shadow: 0 0 8px var(--rb-neon-cyan);
+}
+.retro-blast-arena .target-cross.h {
+  width: 100%;
+  height: 2px;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+}
+.retro-blast-arena .target-cross.v {
+  height: 100%;
+  width: 2px;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+}
+
+/* ==========================================================================
+   BOMB HAZARD TARGET (DANGER NEON RED & ORANGE)
+   ========================================================================== */
+.retro-blast-arena .game-target.is-bomb .target-outer-ring {
+  border-color: var(--rb-danger-red);
+  box-shadow: 0 0 25px var(--rb-danger-red), 0 0 45px rgba(255, 0, 60, 0.7), inset 0 0 20px rgba(255, 0, 60, 0.6);
+  animation: bombDangerPulse 0.45s ease-in-out infinite alternate;
+}
+
+@keyframes bombDangerPulse {
+  0% {
+    transform: scale(0.93);
+    box-shadow: 0 0 15px var(--rb-danger-red);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.07);
+    box-shadow: 0 0 35px var(--rb-danger-red), 0 0 60px rgba(255, 0, 60, 0.9), inset 0 0 25px rgba(255, 0, 60, 0.8);
+    opacity: 1;
+  }
+}
+
+.retro-blast-arena .game-target.is-bomb .target-geo-ring {
+  border-color: var(--rb-neon-orange);
+  border-style: solid;
+  border-width: 2.5px;
+  box-shadow: 0 0 15px var(--rb-neon-orange);
+  animation: rotateCounter 3s linear infinite;
+}
+
+.retro-blast-arena .game-target.is-bomb .target-inner-ring {
+  border-color: var(--rb-danger-red);
+  box-shadow: 0 0 16px var(--rb-danger-red);
+  background: rgba(255, 0, 60, 0.3);
+}
+
+.retro-blast-arena .game-target.is-bomb .target-core {
+  inset: 26px;
+  background: radial-gradient(circle, #ffffff 0%, var(--rb-danger-red) 65%, #6b0019 100%);
+  box-shadow: 0 0 18px #ffffff, 0 0 40px var(--rb-danger-red), 0 0 60px var(--rb-danger-red);
+}
+
+.retro-blast-arena .game-target.is-bomb .target-cross {
+  background: var(--rb-danger-red);
+  box-shadow: 0 0 10px var(--rb-danger-red);
+}
+
+/* ==========================================================================
+   FLOATING COMBAT SCORE POPUPS
+   ========================================================================== */
+.retro-blast-arena .score-popup {
+  position: absolute;
+  font-family: 'Orbitron', monospace;
+  font-size: 1.25rem;
+  font-weight: 900;
+  pointer-events: none;
+  z-index: 35;
+  transform: translate(-50%, -50%);
+  animation: scorePopupFloat 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.retro-blast-arena .score-popup.score-positive {
+  color: var(--rb-neon-green);
+  text-shadow: 0 0 12px var(--rb-neon-green), 0 0 20px rgba(57, 255, 20, 0.8);
+}
+
+.retro-blast-arena .score-popup.score-negative {
+  color: var(--rb-danger-red);
+  font-size: 1.35rem;
+  text-shadow: 0 0 15px var(--rb-danger-red), 0 0 25px rgba(255, 0, 60, 0.9);
+}
+
+@keyframes scorePopupFloat {
+  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  25% { transform: translate(-50%, -75%) scale(1.2); opacity: 1; }
+  100% { transform: translate(-50%, -140%) scale(1); opacity: 0; }
+}
+
+.retro-blast-arena.screen-shake {
+  animation: rbScreenShake 0.32s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes rbScreenShake {
+  10%, 90% { transform: translate3d(-3px, 0, 0); }
+  20%, 80% { transform: translate3d(5px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+  40%, 60% { transform: translate3d(6px, 0, 0); }
+}
+
+/* ==========================================================================
+   IN-GAME HUD
+   ========================================================================== */
+.retro-blast-arena .hud-container {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.retro-blast-arena .hud-panel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(13, 2, 33, 0.85);
+  border: 1.5px solid rgba(0, 253, 250, 0.4);
+  box-shadow: 0 0 20px rgba(0, 253, 250, 0.25), inset 0 0 15px rgba(13, 2, 33, 0.8);
+  padding: 8px 24px;
+  border-radius: 6px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.retro-blast-arena .hud-corner-accent {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-color: var(--rb-neon-cyan);
+  border-style: solid;
+}
+.retro-blast-arena .hud-corner-accent.tl { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+.retro-blast-arena .hud-corner-accent.tr { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+.retro-blast-arena .hud-corner-accent.bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+.retro-blast-arena .hud-corner-accent.br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+.retro-blast-arena .hud-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.retro-blast-arena .hud-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55rem;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 1px;
+}
+
+.retro-blast-arena .hud-value {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.retro-blast-arena .hud-glow-cyan {
+  color: var(--rb-neon-cyan);
+  text-shadow: 0 0 10px var(--rb-neon-cyan), 0 0 20px var(--rb-neon-cyan), 0 0 30px rgba(0, 253, 250, 0.6);
+}
+.retro-blast-arena .hud-glow-pink {
+  color: var(--rb-neon-pink);
+  text-shadow: 0 0 10px var(--rb-neon-pink), 0 0 20px var(--rb-neon-pink), 0 0 30px rgba(255, 0, 127, 0.6);
+}
+.retro-blast-arena .hud-glow-green {
+  color: var(--rb-neon-green);
+  text-shadow: 0 0 10px var(--rb-neon-green), 0 0 20px var(--rb-neon-green), 0 0 30px rgba(57, 255, 20, 0.6);
+}
+.retro-blast-arena .hud-glow-yellow {
+  color: var(--rb-neon-yellow);
+  text-shadow: 0 0 10px var(--rb-neon-yellow), 0 0 20px var(--rb-neon-yellow), 0 0 30px rgba(255, 230, 0, 0.6);
+}
+
+.retro-blast-arena .hud-round-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.retro-blast-arena .hud-sub-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.48rem;
+  color: var(--rb-neon-cyan);
+  text-shadow: 0 0 8px var(--rb-neon-cyan);
+}
+
+.retro-blast-arena .hud-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(0, 253, 250, 0.4);
+  box-shadow: 0 0 8px rgba(0, 253, 250, 0.5);
+}
+
+.retro-blast-arena .hud-subbar {
+  display: flex;
+  gap: 12px;
+}
+
+.retro-blast-arena .hud-pill {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 5px 16px;
+  border-radius: 20px;
+  background: rgba(13, 2, 33, 0.92);
+  border: 1.5px solid var(--rb-neon-cyan);
+  box-shadow: 0 0 15px rgba(0, 253, 250, 0.5), inset 0 0 10px rgba(0, 253, 250, 0.2);
+  letter-spacing: 1px;
+}
+.retro-blast-arena .wave-pill {
+  color: var(--rb-neon-cyan);
+  text-shadow: 0 0 8px var(--rb-neon-cyan);
+}
+.retro-blast-arena .streak-pill {
+  color: var(--rb-neon-yellow);
+  border-color: var(--rb-neon-yellow);
+  box-shadow: 0 0 18px rgba(255, 230, 0, 0.6), inset 0 0 10px rgba(255, 230, 0, 0.3);
+  text-shadow: 0 0 8px var(--rb-neon-yellow);
+  animation: streakGlow 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes streakGlow {
+  0% { transform: scale(1); box-shadow: 0 0 12px rgba(255, 230, 0, 0.4); }
+  100% { transform: scale(1.06); box-shadow: 0 0 24px rgba(255, 230, 0, 0.8); }
+}
+
+.retro-blast-arena .hud-pill.hidden {
+  display: none;
+}
+
+/* Quick audio control */
+.retro-blast-arena .ingame-controls {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  z-index: 32;
+}
+
+.retro-blast-arena .hud-icon-btn {
+  background: rgba(13, 2, 33, 0.85);
+  border: 1px solid var(--rb-neon-cyan);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0, 253, 250, 0.3);
+}
+
+/* ==========================================================================
+   FIRST-PERSON BLASTER WEAPON & HAND RIG
+   ========================================================================== */
+.retro-blast-arena .fpv-weapon-rig {
+  position: absolute;
+  bottom: -20px;
+  right: 20px;
+  width: 380px;
+  height: 420px;
+  z-index: 25;
+  pointer-events: none;
+  transform-origin: bottom right;
+}
+
+.retro-blast-arena .weapon-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.retro-blast-arena .weapon-container.weapon-recoil {
+  animation: blasterKick 0.14s cubic-bezier(0.1, 0.9, 0.2, 1);
+}
+
+@keyframes blasterKick {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  35% { transform: translate(16px, 32px) rotate(4deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+.retro-blast-arena .muzzle-flash {
+  position: absolute;
+  top: 90px;
+  left: 20px;
+  width: 80px;
+  height: 80px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 26;
+  transition: opacity 0.05s ease-out;
+}
+
+.retro-blast-arena .muzzle-flash.active {
+  opacity: 1;
+}
+
+.retro-blast-arena .flash-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 32px;
+  height: 32px;
+  background: #ffffff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 25px #ffffff, 0 0 50px var(--rb-neon-cyan);
+}
+
+.retro-blast-arena .flash-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 70px;
+  height: 70px;
+  border: 3px solid var(--rb-neon-cyan);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 20px var(--rb-neon-cyan);
+}
+
+.retro-blast-arena .blaster-svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 15px rgba(0, 253, 250, 0.4));
+}
+
+/* ==========================================================================
+   ROUND OVERLAYS INSIDE ARENA (Wave complete / Round 5 finish)
+   ========================================================================== */
+.retro-blast-arena .modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 50;
+  background: rgba(13, 2, 33, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px;
+  box-sizing: border-box;
+  transition: opacity 0.3s ease;
+}
+
+.retro-blast-arena .modal-overlay.hidden {
+  display: none !important;
+}
+
+.retro-blast-arena .intermission-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: var(--rb-bg-card);
+  border: 2px solid var(--rb-neon-cyan);
+  box-shadow: 0 0 35px var(--rb-neon-cyan), inset 0 0 25px rgba(0, 253, 250, 0.2);
+  padding: 1.4rem 2rem;
+  border-radius: 10px;
+  width: min(480px, 92%);
+  box-sizing: border-box;
+}
+
+.retro-blast-arena .arcade-badge {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.6rem;
+  color: var(--rb-neon-yellow);
+  padding: 3px 10px;
+  border: 1px solid var(--rb-neon-yellow);
+  margin-bottom: 8px;
+}
+
+.retro-blast-arena .intermission-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 0 15px var(--rb-neon-cyan);
+  margin-bottom: 10px;
+}
+
+.retro-blast-arena .intermission-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+  margin: 10px 0;
+}
+
+.retro-blast-arena .istat-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.88rem;
+  border-bottom: 1px solid rgba(0, 253, 250, 0.2);
+  padding-bottom: 4px;
+}
+
+.retro-blast-arena .istat-row span {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.retro-blast-arena .istat-row strong {
+  color: var(--rb-neon-cyan);
+  font-weight: 900;
+}
+
+.retro-blast-arena .btn-neon-action {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.88rem;
+  font-weight: 900;
+  color: #0d0221;
+  background: var(--rb-neon-cyan);
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 0 18px var(--rb-neon-cyan);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.retro-blast-arena .btn-neon-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 28px var(--rb-neon-cyan), 0 0 45px rgba(0, 253, 250, 0.6);
+}
+
+/* Round 3 Sequential Depletion Countdown Ring (SVG) */
+.retro-blast-arena .countdown-svg-timer {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 92px;
+  height: 92px;
+  pointer-events: none;
+  transform: rotate(-90deg);
+}
+
+.retro-blast-arena .timer-circle-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-width: 3;
+}
+
+.retro-blast-arena .timer-circle-progress {
+  fill: none;
+  stroke: var(--rb-neon-cyan);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 8px var(--rb-neon-cyan));
+  transition: stroke-dashoffset 0.04s linear;
+}
+
+.retro-blast-arena .game-target.is-bomb .timer-circle-progress {
+  stroke: var(--rb-danger-red);
+  filter: drop-shadow(0 0 8px var(--rb-danger-red));
+}
+
+.retro-blast-arena .timer-pill {
+  color: var(--rb-neon-orange);
+  border-color: var(--rb-neon-orange);
+  box-shadow: 0 0 12px rgba(255, 119, 0, 0.5);
+  text-shadow: 0 0 8px var(--rb-neon-orange);
+  font-weight: 900;
+}
+
+.retro-blast-arena .timer-pill.timer-urgent {
+  color: var(--rb-danger-red);
+  border-color: var(--rb-danger-red);
+  box-shadow: 0 0 18px var(--rb-danger-red);
+  text-shadow: 0 0 10px var(--rb-danger-red);
+  animation: urgentPulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes urgentPulse {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.08); box-shadow: 0 0 24px var(--rb-danger-red); }
+}

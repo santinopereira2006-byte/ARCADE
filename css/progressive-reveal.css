@@ -1,0 +1,107 @@
+/**
+ * ARCADE - Progressive Reveal CSS Filters
+ * 4-Stage Progressive Unblur & Crop Filter System for Round 2: CTRL + ALT + GUESS
+ */
+
+/* Stage 1: 20 Points - Reduced Blur so colors and overall shape are visible */
+.reveal-filter-stage-1 {
+  filter: blur(6px) contrast(115%) brightness(96%);
+  transform: scale(1.12);
+  clip-path: circle(55% at 50% 50%);
+  transition: filter 0.4s ease, transform 0.4s ease, clip-path 0.4s ease;
+}
+
+/* Stage 2: 15 Points - Light Frosted Blur (+15 Points Hint) */
+.reveal-filter-stage-2 {
+  filter: blur(3.2px) contrast(108%);
+  transform: scale(1.06);
+  clip-path: circle(72% at 50% 50%);
+  transition: filter 0.4s ease, transform 0.4s ease, clip-path 0.4s ease;
+}
+
+/* Stage 3: 10 Points - Very Subtle Blur (10 Points 50:50 Stage) */
+.reveal-filter-stage-3 {
+  filter: blur(1.2px) contrast(103%);
+  transform: scale(1.02);
+  clip-path: inset(1% round 8px);
+  transition: filter 0.4s ease, transform 0.4s ease, clip-path 0.4s ease;
+}
+
+/* Stage 4: 5 Points - Full Resolution & Zero Filter */
+.reveal-filter-stage-4 {
+  filter: none;
+  transform: scale(1);
+  clip-path: none;
+  transition: filter 0.4s ease, transform 0.4s ease, clip-path 0.4s ease;
+}
+
+/* Graphic Image Display */
+.tech-graphic-img {
+  max-width: 90%;
+  max-height: 215px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  border-radius: 8px;
+}
+
+/* Cyber Scanning Grid overlay on reveal stage */
+.cyber-scan-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 4px,
+    rgba(0, 240, 255, 0.08) 4px,
+    rgba(0, 240, 255, 0.08) 5px
+  );
+}
+
+/* 50:50 Lifeline Button & Eliminated Option Styles */
+.reveal-actions-strip {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-lifeline-fifty {
+  background: rgba(255, 183, 3, 0.12);
+  border: 1px solid var(--neon-amber);
+  color: var(--neon-amber);
+  font-family: var(--font-tech);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  padding: 8px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-lifeline-fifty:hover:not(:disabled) {
+  background: rgba(255, 183, 3, 0.25);
+  box-shadow: 0 0 14px rgba(255, 183, 3, 0.4);
+}
+
+.btn-lifeline-fifty:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-muted);
+}
+
+.btn-tech-opt.option-eliminated {
+  opacity: 0.18 !important;
+  pointer-events: none !important;
+  text-decoration: line-through !important;
+  filter: grayscale(1) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
