@@ -63,24 +63,57 @@ class ArcadeApp {
         const nameInput = document.getElementById("participantTeamName");
         const codeInput = document.getElementById("participantAccessCode");
         const errorEl = document.getElementById("participantLoginError");
-        const team = LeaderboardManager.findTeamByCredentials(nameInput?.value, codeInput?.value);
+        const enteredName = (nameInput?.value || "").trim();
+        const enteredCode = (codeInput?.value || "").trim().toUpperCase();
 
-        if (!team) {
-          if (errorEl) errorEl.textContent = "Team name or access code not recognised. Ask the admin desk for the exact credentials.";
-          codeInput?.classList.add("input-error-flash");
-          setTimeout(() => codeInput?.classList.remove("input-error-flash"), 600);
+        if (!enteredName) {
+          if (errorEl) errorEl.textContent = "Please enter your name or team name.";
+          nameInput?.focus();
           return;
         }
 
+        // Look up if a team was pre-registered with these credentials
+        let team = null;
+        if (enteredCode) {
+          team = LeaderboardManager.findTeamByCredentials(enteredName, enteredCode);
+        }
+        if (!team) {
+          // Check by name only in roster
+          const roster = LeaderboardManager.getRoster();
+          team = roster.find(t => t.name.toLowerCase() === enteredName.toLowerCase());
+        }
+
+        if (!team) {
+          // Automatically register this participant/team
+          team = LeaderboardManager.registerTeam({
+            name: enteredName,
+            department: "Arcade Arena",
+            accessCode: enteredCode || LeaderboardManager.generateAccessCode()
+          });
+        }
+
         if (team.status === "completed") {
-          if (errorEl) errorEl.textContent = "This team has already completed its run. Please contact the admin desk.";
+          if (errorEl) errorEl.textContent = "This team has already completed its tournament run. Please contact the admin desk.";
           return;
         }
 
         AuthManager.authenticateParticipant(team);
         AuthManager.applyRoleVisibility();
+        state.setTeam(team);
         if (errorEl) errorEl.textContent = "";
-        this.startGameWithTeam(team);
+
+        // Update 3D HUD player tag and loading note
+        const playerNameEl = document.getElementById("room3dPlayerName");
+        if (playerNameEl) playerNameEl.textContent = team.name.toUpperCase();
+
+        const loadingTitleEl = document.getElementById("room3dLoadingTitle");
+        if (loadingTitleEl) loadingTitleEl.textContent = "BOOTING 3D ARCADE...";
+
+        const loadingNoteEl = document.getElementById("room3dLoadingNote");
+        if (loadingNoteEl) loadingNoteEl.textContent = `Welcome, ${team.name}! Loading 3D arena assets…`;
+
+        // Switch to the 3D room and boot the 3D models!
+        this.enterArcadeRoom();
       });
     }
 
@@ -737,18 +770,24 @@ class ArcadeApp {
       });
       this.ui.scoreDisplayValue = 0;
     }
+    document.body.classList.remove("room3d-mode");
     this.ui.showScreen("screen-game");
     this.loadRound(roundNumber);
   }
 
   async enterArcadeRoom() {
-    if (this.room3d) {
-      this.ui.showScreen("screen-room3d");
+    this.ui.showScreen("screen-room3d");
+    document.body.classList.add("room3d-mode");
+
+    const playerName = state.activeTeam?.name || "CHALLENGER";
+    const playerNameEl = document.getElementById("room3dPlayerName");
+    if (playerNameEl) playerNameEl.textContent = playerName.toUpperCase();
+
+    if (this.room3d && this.room3d.ready) {
       this.room3d.enter();
       return;
     }
 
-    this.ui.showScreen("screen-room3d");
     const errorEl = document.getElementById("room3dError");
 
     try {
@@ -776,6 +815,7 @@ class ArcadeApp {
 
   exitArcadeRoom() {
     if (this.room3d) this.room3d.exit();
+    document.body.classList.remove("room3d-mode");
     this.ui.showScreen("screen-home");
   }
 

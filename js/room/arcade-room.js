@@ -137,6 +137,8 @@ export class ArcadeRoom3D {
 
     if (!this.canvas) throw new Error("room3dCanvas missing from index.html");
 
+    if (this.loadingEl) this.loadingEl.classList.remove("hidden");
+
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true,
@@ -178,8 +180,10 @@ export class ArcadeRoom3D {
     this.resize();
     this.applyQuality(this.quality);
     this.ready = true;
-    this.setProgress(1, "Ready");
-    if (this.loadingEl) this.loadingEl.classList.add("hidden");
+    this.setProgress(1, "ARENA READY — SPAWNING MECHA CHAMELEON");
+    if (this.loadingEl) {
+      setTimeout(() => this.loadingEl.classList.add("hidden"), 350);
+    }
     this.renderFrame();
     // Character statues stream in after the room is usable (Master Chief is large).
     if (this.decor) this.decor.loadStatues().catch(err => console.warn("Statues failed:", err));

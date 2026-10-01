@@ -1,17 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ARCADE | College Technical Event Gaming Platform</title>
-  <meta name="description" content="ARCADE — Four Games. One Score. Zero Room for Error. Multi-round competitive esports tournament combining Scale Wars, CTRL+ALT+GUESS, Tech Meme Battle, and Blackout Build.">
+  <meta name="description"
+    content="ARCADE — Four Games. One Score. Zero Room for Error. Multi-round competitive esports tournament combining Scale Wars, CTRL+ALT+GUESS, Tech Meme Battle, and Blackout Build.">
   <meta name="theme-color" content="#05070d">
-  
+
   <!-- Google Fonts: Orbitron, Rajdhani, JetBrains Mono, Inter & Press Start 2P -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
-  
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap"
+    rel="stylesheet">
+
   <!-- CSS Stylesheets (Cyberpunk Esports Theme) -->
   <link rel="stylesheet" href="css/arcade-style.css?v=3.0">
   <link rel="stylesheet" href="css/blackout-ide.css?v=3.0">
@@ -51,22 +55,26 @@
       </button>
 
       <!-- Projector / Presentation Mode Toggle -->
-      <button type="button" class="btn-nav-mode" id="togglePresentationBtn" title="Toggle Projector Presentation Mode (Shortcut: Press P)">
+      <button type="button" class="btn-nav-mode" id="togglePresentationBtn"
+        title="Toggle Projector Presentation Mode (Shortcut: Press P)">
         <span class="mode-icon">📽️</span> PRESENTATION MODE
       </button>
 
       <!-- Tournament Leaderboard Screen Trigger -->
-      <button type="button" class="btn-nav-mode btn-nav-leaderboard" id="btnNavLeaderboard" title="View Tournament Leaderboard">
+      <button type="button" class="btn-nav-mode btn-nav-leaderboard" id="btnNavLeaderboard"
+        title="View Tournament Leaderboard">
         <span class="mode-icon">🏆</span> LEADERBOARD
       </button>
 
       <!-- Retro Blast Standalone Mode Trigger -->
-      <a href="retro.html" class="btn-nav-mode btn-nav-retro" id="btnNavRetroBlast" title="Launch Retro Blast 3D Arcade Machine" style="text-decoration: none;">
+      <a href="retro.html" class="btn-nav-mode btn-nav-retro" id="btnNavRetroBlast"
+        title="Launch Retro Blast 3D Arcade Machine" style="text-decoration: none;">
         <span class="mode-icon">🎯</span> RETRO BLAST
       </a>
 
       <!-- Quick Organizer Terminal Trigger -->
-      <button type="button" class="btn-nav-mode" id="btnNavOrganizer" title="Open Organizer Console — organizer passphrase required">
+      <button type="button" class="btn-nav-mode" id="btnNavOrganizer"
+        title="Open Organizer Console — organizer passphrase required">
         <span class="mode-icon">⚙️</span>
       </button>
     </div>
@@ -84,57 +92,58 @@
           <span class="hero-badge-tag">CSI TECHNICAL SYMPOSIUM 2026</span>
           <div class="access-kicker">EVENT-DAY ARCADE PLATFORM</div>
           <h1 class="hero-main-title glitch-title" data-text="ARCADE">ARCADE</h1>
-          <p class="access-tagline">Five rounds. One team. Your run starts here.</p>
-          <p class="access-copy">Use the team name and access code supplied by your organizer. Scores and standings are managed privately by the admin desk.</p>
+          <p class="access-tagline">Enter your name to step inside the 3D Arcade Arena.</p>
+          <p class="access-copy">Explore the cyberpunk hall as Mecha Chameleon, interact with arcade cabinets, and
+            compete across 5 tournament disciplines.</p>
           <div class="access-round-strip" aria-label="Tournament rounds">
-            <span class="btn-direct-round" data-round="1" title="Launch Round 1: Scale Wars"><b>01</b> Scale Wars</span>
-            <span class="btn-direct-round" data-round="2" title="Launch Round 2: Ctrl + Alt + Guess"><b>02</b> Ctrl + Alt + Guess</span>
-            <span class="btn-direct-round" data-round="3" title="Launch Round 3: Tech Meme Battle"><b>03</b> Tech Meme Battle</span>
-            <span class="btn-direct-round" data-round="4" title="Launch Round 4: Blackout Code"><b>04</b> Blackout Code</span>
-            <span class="btn-direct-round" data-round="5" title="Launch Round 5: Retro Blast"><b>05</b> Retro Blast 🎯</span>
+            <span class="round-strip-item"><b>01</b> Scale Wars</span>
+            <span class="round-strip-item"><b>02</b> Ctrl + Alt + Guess</span>
+            <span class="round-strip-item"><b>03</b> Tech Meme Battle</span>
+            <span class="round-strip-item"><b>04</b> Blackout Code</span>
+            <span class="round-strip-item"><b>05</b> Retro Blast 🎯</span>
           </div>
         </div>
 
         <div class="access-card">
           <div class="access-card-header">
-            <span class="game-badge">PARTICIPANT CHECK-IN</span>
-            <h2>ENTER THE ARENA</h2>
-            <p>Sign in with the credentials given to your team.</p>
+            <span class="game-badge">CHALLENGER AUTHENTICATION</span>
+            <h2>ENTER THE 3D ARCADE</h2>
+            <p>Enter your name or team name to boot into the 3D arena.</p>
           </div>
           <form id="participantLoginForm" class="access-form" autocomplete="off">
             <div class="access-field">
-              <label for="participantTeamName">TEAM NAME</label>
-              <input type="text" id="participantTeamName" class="arcade-text-input" placeholder="e.g. Team Nova" required maxlength="40" autocomplete="off" />
+              <label for="participantTeamName">YOUR NAME / TEAM NAME</label>
+              <input type="text" id="participantTeamName" class="arcade-text-input"
+                placeholder="e.g. CyberNinja, Team Nova, Alex..." required maxlength="40" autofocus
+                autocomplete="off" />
             </div>
             <div class="access-field">
-              <label for="participantAccessCode">ACCESS CODE</label>
-              <input type="text" id="participantAccessCode" class="arcade-text-input access-code-input" placeholder="6-character code" required maxlength="12" autocomplete="off" />
+              <label for="participantAccessCode">ACCESS PASS KEY <span class="field-optional"
+                  style="color: var(--text-dim); font-size: 11px; font-weight: normal; margin-left: 6px;">(OPTIONAL)</span></label>
+              <input type="text" id="participantAccessCode" class="arcade-text-input access-code-input"
+                placeholder="Pass key (if issued by admin)" maxlength="12" autocomplete="off" />
             </div>
             <p class="access-error" id="participantLoginError" role="alert" aria-live="polite"></p>
-            <button type="submit" class="btn-primary-gaming access-submit">CONTINUE TO GAME <span>→</span></button>
+            <button type="submit" class="btn-primary-gaming access-submit" id="btnEnterArcade">
+              ENTER 3D ARCADE ARENA <span>▶</span>
+            </button>
           </form>
-          <button type="button" class="btn-secondary-gaming btn-start-practice access-practice-btn" title="Zero-point warm-up: try the controls before the real run">
-            🎮 PRACTICE MODE <span>(0 PTS)</span>
-          </button>
-          <button type="button" class="btn-secondary-gaming btn-enter-room3d access-room3d-btn" title="Walk the 3D arcade floor and pick a cabinet">
-            🕹️ ENTER THE 3D ARCADE <span>(WALK MODE)</span>
-          </button>
-          <a href="retro.html" class="btn-secondary-gaming access-retro-btn" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between;" title="Launch Standalone Retro Blast 3D Arcade Machine">
-            🎯 RETRO BLAST 3D <span>(AIM LABS) ↗</span>
-          </a>
-          <div class="access-divider"><span>EVENT STAFF</span></div>
-          <button type="button" class="btn-secondary-gaming admin-portal-btn" id="btnAdminPortal">ADMIN LOGIN <span>↗</span></button>
-          <p class="access-footnote">Admins provision teams, issue codes, and monitor scores from the control desk.</p>
+          <div class="access-divider"><span>EVENT CONTROL</span></div>
+          <button type="button" class="btn-secondary-gaming admin-portal-btn" id="btnAdminPortal">ADMIN LOGIN
+            <span>↗</span></button>
+          <p class="access-footnote">Organizers can login to oversee tournament controls and live scores.</p>
         </div>
       </div>
       <div class="home-container">
-        
+
         <div class="hero-header">
           <div class="hero-badge-tag">CSI TECHNICAL SYMPOSIUM 2026</div>
           <h1 class="hero-main-title glitch-title" data-text="ARCADE">ARCADE</h1>
           <h2 class="hero-tagline">Five Games. One Score. Zero Room for Error.</h2>
           <p class="hero-desc">
-            Enter a multi-round technical challenge combining observation, technology, creativity, coding, and precision target reflex under pressure. Compete across 5 distinct disciplines to claim the Supreme Arcade Architect title.
+            Enter a multi-round technical challenge combining observation, technology, creativity, coding, and precision
+            target reflex under pressure. Compete across 5 distinct disciplines to claim the Supreme Arcade Architect
+            title.
           </p>
 
           <div class="event-meta-grid" aria-label="Event highlights">
@@ -159,7 +168,7 @@
 
         <!-- 5 Large Game Cards -->
         <div class="games-showcase-grid">
-          
+
           <!-- Card 1: Scale Wars -->
           <div class="game-card-teaser">
             <span class="card-num-chip">ROUND 01</span>
@@ -167,7 +176,8 @@
             <h3 class="card-title">SCALE WARS</h3>
             <span class="card-theme">Estimation &amp; Observation</span>
             <p class="card-desc">
-              Compare fictional characters, estimate heights, and calculate scale against human and architectural baselines.
+              Compare fictional characters, estimate heights, and calculate scale against human and architectural
+              baselines.
             </p>
           </div>
 
@@ -189,7 +199,8 @@
             <h3 class="card-title">TECH MEME BATTLE</h3>
             <span class="card-theme">Culture &amp; Creativity</span>
             <p class="card-desc">
-              Identify viral developer memes, complete tech jokes, and craft your own custom meme for live judge rubric scoring.
+              Identify viral developer memes, complete tech jokes, and craft your own custom meme for live judge rubric
+              scoring.
             </p>
           </div>
 
@@ -200,7 +211,8 @@
             <h3 class="card-title">BLACKOUT CODE</h3>
             <span class="card-theme">5-Round Memory Speed-Coding</span>
             <p class="card-desc">
-              Memorize increasingly complex code across Python, JS, C++, and Rust before blackout shutters drop. 8-minute global timer with 1000 max points!
+              Memorize increasingly complex code across Python, JS, C++, and Rust before blackout shutters drop.
+              8-minute global timer with 1000 max points!
             </p>
           </div>
 
@@ -211,9 +223,12 @@
             <h3 class="card-title">RETRO BLAST</h3>
             <span class="card-theme">Cyberpunk Target Simulator</span>
             <p class="card-desc">
-              Aim Labs style precision target reflex combat. Fire neon laser blasters with 3D weapon rig, clear geometric target waves, and evade hazard bombs.
+              Aim Labs style precision target reflex combat. Fire neon laser blasters with 3D weapon rig, clear
+              geometric target waves, and evade hazard bombs.
             </p>
-            <a href="retro.html" class="btn-direct-round" style="margin-top: 10px; display: inline-block; text-decoration: none;" title="Launch Standalone Retro Blast 3D">PLAY RETRO BLAST ↗</a>
+            <a href="retro.html" class="btn-direct-round"
+              style="margin-top: 10px; display: inline-block; text-decoration: none;"
+              title="Launch Standalone Retro Blast 3D">PLAY RETRO BLAST ↗</a>
           </div>
 
         </div>
@@ -242,11 +257,12 @@
          ========================================== -->
     <section id="screen-how-to-play" class="screen">
       <div class="how-to-play-container">
-        
+
         <div class="how-header">
           <span class="game-badge">TOURNAMENT PROTOCOL</span>
           <h1 class="how-title">HOW TO PLAY ARCADE</h1>
-          <p class="how-sub">Review competition rules, score mechanics, and the 5-round pipeline before entering the arena.</p>
+          <p class="how-sub">Review competition rules, score mechanics, and the 5-round pipeline before entering the
+            arena.</p>
         </div>
 
         <!-- Visual Flow Pipeline -->
@@ -296,55 +312,64 @@
           <div class="rule-card">
             <span class="rule-icon">🎮</span>
             <h4>5 Consecutive Rounds</h4>
-            <p>Every participant progresses through all 5 rounds in sequence. Scores accumulate continuously into a single cumulative total.</p>
+            <p>Every participant progresses through all 5 rounds in sequence. Scores accumulate continuously into a
+              single cumulative total.</p>
           </div>
 
           <div class="rule-card">
             <span class="rule-icon">🔒</span>
             <h4>Locked Submissions</h4>
-            <p>Answers lock immediately upon selection or submission. Once locked, answers cannot be modified under any circumstances.</p>
+            <p>Answers lock immediately upon selection or submission. Once locked, answers cannot be modified under any
+              circumstances.</p>
           </div>
 
           <div class="rule-card">
             <span class="rule-icon">📵</span>
             <h4>Strict Integrity: No Devices</h4>
-            <p>No mobile phones, no internet search, and no external reference notes or cheat sheets are permitted during gameplay.</p>
+            <p>No mobile phones, no internet search, and no external reference notes or cheat sheets are permitted
+              during gameplay.</p>
           </div>
 
           <div class="rule-card">
             <span class="rule-icon">⏱️</span>
             <h4>Tournament Timer System</h4>
-            <p>Rounds 1–4 feature unpausable countdown clocks. Round 5 drops the clock for pure marksmanship and precision target shooting!</p>
+            <p>Rounds 1–4 feature unpausable countdown clocks. Round 5 drops the clock for pure marksmanship and
+              precision target shooting!</p>
           </div>
 
           <div class="rule-card">
             <span class="rule-icon">🎯</span>
             <h4>Retro Blast Rules</h4>
-            <p>Round 5 enters the synthwave target simulator: blast targets (+pts) across 3 waves and avoid detonating hazard bombs (-2 pts)!</p>
+            <p>Round 5 enters the synthwave target simulator: blast targets (+pts) across 3 waves and avoid detonating
+              hazard bombs (-2 pts)!</p>
           </div>
 
           <div class="rule-card">
             <span class="rule-icon">🏆</span>
             <h4>Highest Score Wins</h4>
-            <p>The contestant or team with the highest aggregate score wins. Performance Tiers (S, A, B, C, D) are awarded on the results podium.</p>
+            <p>The contestant or team with the highest aggregate score wins. Performance Tiers (S, A, B, C, D) are
+              awarded on the results podium.</p>
           </div>
 
           <div class="rule-card">
             <span class="rule-icon">⚡</span>
             <h4>Blackout Code Rules</h4>
-            <p>5 progressive rounds under a single 8-minute global timer. Memorize the code before blackout shutters drop (12s, 10s, 4s, and 10s sprint). 1000 max points!</p>
+            <p>5 progressive rounds under a single 8-minute global timer. Memorize the code before blackout shutters
+              drop (12s, 10s, 4s, and 10s sprint). 1000 max points!</p>
           </div>
 
           <div class="rule-card">
             <span class="rule-icon">🎨</span>
             <h4>Creative Standards</h4>
-            <p>Round 3 Meme Studio entries are evaluated by event judges on Originality, Humor, and Relevance. All content must remain college-appropriate.</p>
+            <p>Round 3 Meme Studio entries are evaluated by event judges on Originality, Humor, and Relevance. All
+              content must remain college-appropriate.</p>
           </div>
 
           <div class="rule-card">
             <span class="rule-icon">⚖️</span>
             <h4>Sudden Death Tie-Breaker</h4>
-            <p>If tied at tournament conclusion, the organizer launches a Sudden Death high-precision estimation challenge (+20 bonus points).</p>
+            <p>If tied at tournament conclusion, the organizer launches a Sudden Death high-precision estimation
+              challenge (+20 bonus points).</p>
           </div>
         </div>
 
@@ -372,8 +397,10 @@
         <div class="room3d-loading" id="room3dLoading">
           <div class="room3d-loading-card">
             <span class="game-badge">BOOTING ARCADE FLOOR</span>
-            <h2 class="room3d-loading-title">LOADING 3D ROOM…</h2>
-            <div class="room3d-progress"><div class="room3d-progress-bar" id="room3dProgressBar"></div></div>
+            <h2 class="room3d-loading-title" id="room3dLoadingTitle">LOADING 3D ROOM…</h2>
+            <div class="room3d-progress">
+              <div class="room3d-progress-bar" id="room3dProgressBar"></div>
+            </div>
             <p class="room3d-loading-note" id="room3dLoadingNote">Fetching room geometry…</p>
           </div>
         </div>
@@ -381,11 +408,18 @@
         <div class="room3d-hud">
           <div class="room3d-hud-left">
             <span class="room3d-title">ARCADE FLOOR — MECHA CHAMELEON</span>
-            <span class="room3d-keys"><b>WASD</b> move · <b>MOUSE</b> look · <b>SHIFT</b> sprint · <b>SPACE</b> jump · <b>CTRL</b> crouch · <b>E</b> play/tongue · <b>LMB</b> tongue · <b>RMB</b> lock-on · <b>Q</b> camo · <b>ESC</b> leave</span>
+            <span class="room3d-player-tag" id="room3dPlayerTag"
+              style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px; background: rgba(0, 229, 255, 0.15); border: 1px solid var(--neon-cyan); border-radius: 12px; color: var(--neon-cyan); font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 800; letter-spacing: 1px; box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);">
+              PLAYER: <strong id="room3dPlayerName">—</strong>
+            </span>
+            <span class="room3d-keys"><b>WASD</b> move · <b>MOUSE</b> look · <b>SHIFT</b> sprint · <b>SPACE</b> jump ·
+              <b>E</b> play cabinet · <b>Q</b> camo · <b>ESC</b> pause</span>
           </div>
           <div class="room3d-hud-right">
-            <label class="room3d-sens" title="Camera sensitivity">SENS<input type="range" id="room3dSens" min="40" max="250" value="100" /></label>
-            <button type="button" class="btn-secondary-gaming room3d-exit" id="btnRoom3dExit">🏠 LEAVE THE ARCADE</button>
+            <label class="room3d-sens" title="Camera sensitivity">SENS<input type="range" id="room3dSens" min="40"
+                max="250" value="100" /></label>
+            <button type="button" class="btn-secondary-gaming room3d-exit" id="btnRoom3dExit">🏠 LEAVE THE
+              ARCADE</button>
           </div>
         </div>
 
@@ -394,11 +428,15 @@
         <div class="room3d-status">
           <div class="room3d-meter" title="Sprint stamina">
             <span class="room3d-meter-label">STA</span>
-            <div class="room3d-meter-track"><div class="room3d-meter-fill" id="room3dStamina"></div></div>
+            <div class="room3d-meter-track">
+              <div class="room3d-meter-fill" id="room3dStamina"></div>
+            </div>
           </div>
           <div class="room3d-meter" title="Camo state">
             <span class="room3d-meter-label">CAMO</span>
-            <div class="room3d-meter-track"><div class="room3d-meter-fill camo" id="room3dCamo"></div></div>
+            <div class="room3d-meter-track">
+              <div class="room3d-meter-fill camo" id="room3dCamo"></div>
+            </div>
           </div>
         </div>
 
@@ -408,7 +446,8 @@
             <button type="button" class="btn-primary-gaming" id="btnPauseResume">▶ RESUME</button>
             <button type="button" class="btn-secondary-gaming" id="btnPauseSettings">⚙ SETTINGS</button>
             <button type="button" class="btn-secondary-gaming" id="btnPauseLeave">🏠 LEAVE THE ARCADE</button>
-            <label class="room3d-sens pause-sens" id="pauseSensRow" hidden>SENS<input type="range" id="room3dSensPause" min="40" max="250" value="100" /></label>
+            <label class="room3d-sens pause-sens" id="pauseSensRow" hidden>SENS<input type="range" id="room3dSensPause"
+                min="40" max="250" value="100" /></label>
             <label class="room3d-sens pause-sens" id="pauseQualityRow" hidden>QUALITY
               <select id="room3dQuality">
                 <option value="low">LOW</option>
@@ -433,7 +472,7 @@
       <!-- Global Game HUD -->
       <div class="game-hud-top">
         <div class="hud-bar-main">
-          
+
           <!-- Top Left: Brand & Title -->
           <div class="hud-left">
             <span class="hud-logo">ARCADE</span>
@@ -510,7 +549,7 @@
        ========================================== -->
   <footer class="csi-event-footer">
     <div class="footer-content-grid">
-      
+
       <div class="footer-col">
         <h4>CSI CONVENER</h4>
         <p><strong>Prof. Uday Rote</strong><br>Dean of Student Welfare</p>
@@ -519,7 +558,8 @@
       <div class="footer-col">
         <h4>CSI FACULTY COORDINATORS</h4>
         <p><strong>Prof. Nisha Vanjari</strong> — Dept. of Computer Engineering<br>
-        <strong>Prof. Mansing Rathod</strong> — Dept. of Information Technology</p>
+          <strong>Prof. Mansing Rathod</strong> — Dept. of Information Technology
+        </p>
       </div>
 
       <div class="footer-col">
@@ -530,15 +570,16 @@
       <div class="footer-col">
         <h4>EVENT HEAD &amp; CREW</h4>
         <p><strong>Santino Pereira</strong> — SY AI-DS (Event Head)<br>
-        <strong>Darpan</strong> — SY (Volunteer)<br>
-        <strong>Harikrishna Padhiyar</strong> — SY (Volunteer)</p>
+          <strong>Darpan</strong> — SY (Volunteer)<br>
+          <strong>Harikrishna Padhiyar</strong> — SY (Volunteer)
+        </p>
       </div>
 
       <div class="footer-col">
         <h4>EVENT SCHEDULE</h4>
         <p>Date: <strong>CSI Tech Fest 2026</strong><br>
-        Time: <strong>Live Tournament</strong><br>
-        Venue: <strong>Computer Labs / Auditorium</strong></p>
+          Time: <strong>Live Tournament</strong><br>
+          Venue: <strong>Computer Labs / Auditorium</strong></p>
       </div>
 
     </div>
@@ -591,4 +632,5 @@
   <!-- Bootstrap Application Script (ES Module) -->
   <script type="module" src="js/app.js"></script>
 </body>
+
 </html>
