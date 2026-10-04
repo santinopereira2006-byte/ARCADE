@@ -5,106 +5,227 @@
 
 import { SCALE_WARS_CHARACTERS } from "../data/round1-scale.js";
 
+// Persistent pool for preloaded & pre-rendered <model-viewer> elements
+const modelViewerPool = new Map();
+let preloadPromise = null;
+
+const POOL_CONTAINER_ID = "scale-wars-model-pool";
+
+// Preload priority based on round question progression
+const PRELOAD_PRIORITY = ["mario", "pikachu", "masterchief", "hulk", "megatron", "optimus", "shrek", "thanos"];
+
+function getOrCreatePoolContainer() {
+  let pool = document.getElementById(POOL_CONTAINER_ID);
+  if (!pool) {
+    pool = document.createElement("div");
+    pool.id = POOL_CONTAINER_ID;
+    pool.className = "scale-wars-model-pool";
+    pool.setAttribute("aria-hidden", "true");
+    document.body.appendChild(pool);
+  }
+  return pool;
+}
+
+function createPooledModelViewer(char) {
+  const mv = document.createElement("model-viewer");
+  mv.setAttribute("src", char.glbSrc);
+  mv.setAttribute("alt", (char ? char.name : "Character") + " 3D Model");
+  mv.setAttribute("auto-rotate", "");
+  mv.setAttribute("auto-rotate-delay", "0");
+  mv.setAttribute("rotation-per-second", "30deg");
+  mv.setAttribute("camera-controls", "");
+  mv.setAttribute("touch-action", "pan-y");
+  mv.setAttribute("interaction-prompt", "none");
+  mv.setAttribute("shadow-intensity", "0.8");
+  mv.setAttribute("shadow-softness", "0.8");
+  mv.setAttribute("environment-image", "neutral");
+  mv.setAttribute("exposure", "1.15");
+  mv.setAttribute("bounds", "tight");
+  mv.setAttribute("autoplay", "");
+  mv.setAttribute("loading", "eager");
+  mv.setAttribute("reveal", "auto");
+  mv.style.width = "100%";
+  mv.style.height = "100%";
+  mv.style.background = "transparent";
+  mv.dataset.charId = char.id;
+  mv.dataset.glb = char.glbSrc;
+
+  mv.addEventListener("load", () => {
+    mv.dataset.modelLoaded = "true";
+  });
+
+  mv.addEventListener("error", (e) => {
+    console.warn(`Scale Wars model failed to load (${char.glbSrc}):`, e);
+    mv.dataset.modelError = "true";
+    if (char && char.svg && mv.parentElement && !mv.parentElement.classList.contains("scale-wars-model-pool")) {
+      const fallbackDiv = document.createElement("div");
+      fallbackDiv.innerHTML = char.svg;
+      mv.replaceWith(fallbackDiv.firstElementChild || fallbackDiv);
+    }
+  });
+
+  return mv;
+}
+
+/**
+ * Preloads and pre-renders all 3D models used in Scale Wars.
+ * Configures modelCacheSize and creates <model-viewer> elements in a hidden pool.
+ */
+export async function preloadScaleWarsModels() {
+  if (preloadPromise) return preloadPromise;
+
+  preloadPromise = (async () => {
+    if (!customElements.get("model-viewer")) {
+      try {
+        await Promise.race([
+          customElements.whenDefined("model-viewer"),
+          new Promise((resolve) => setTimeout(resolve, 3000))
+        ]);
+      } catch (err) {
+        console.warn("model-viewer definition wait timeout:", err);
+      }
+    }
+
+    // Set modelCacheSize so loaded GLTF models are retained in GPU/memory cache
+    const MVE = customElements.get("model-viewer");
+    if (MVE && typeof MVE.modelCacheSize !== "undefined") {
+      try {
+        MVE.modelCacheSize = 25;
+      } catch (_) {}
+    }
+
+    const pool = getOrCreatePoolContainer();
+
+    // 1. First preload in order of questions (Q1, then Q2, then Q3)
+    for (const charId of PRELOAD_PRIORITY) {
+      const char = SCALE_WARS_CHARACTERS[charId];
+      if (char && char.glbSrc && !modelViewerPool.has(charId)) {
+        const mv = createPooledModelViewer(char);
+        modelViewerPool.set(charId, mv);
+        pool.appendChild(mv);
+      }
+    }
+
+    // 2. Preload any remaining characters with glbSrc
+    for (const char of Object.values(SCALE_WARS_CHARACTERS)) {
+      if (char.glbSrc && !modelViewerPool.has(char.id)) {
+        const mv = createPooledModelViewer(char);
+        modelViewerPool.set(char.id, mv);
+        pool.appendChild(mv);
+      }
+    }
+  })();
+
+  return preloadPromise;
+}
+
+/**
+ * Reclaims active <model-viewer> elements currently displayed in the game arena
+ * and stores them safely back in the persistent pool container before DOM rewrites.
+ * This prevents their WebGL context / Three.js scenes from being disposed!
+ */
+export function reclaimActiveModelViewers() {
+  const pool = getOrCreatePoolContainer();
+  const activeMvs = document.querySelectorAll(
+    "#gameArena model-viewer, .character-card model-viewer, .size-it-up-stage model-viewer, .estimation-stage model-viewer"
+  );
+  activeMvs.forEach((mv) => {
+    const charId = mv.dataset.charId;
+    if (charId && modelViewerPool.has(charId)) {
+      pool.appendChild(mv);
+      // Reset camera orbit to default if needed
+      try {
+        if (mv.cameraOrbit) mv.cameraOrbit = "0deg 75deg 105%";
+      } catch (_) {}
+    }
+  });
+}
+
 /**
  * Returns inline media HTML for a character.
- * If the character has a glbSrc, renders a placeholder div that gets
- * upgraded to a real model-viewer after the DOM is ready.
+ * If the model is already preloaded, omits the loading spinner for an instant experience.
  */
 function charMediaHTML(char) {
   if (char.glbSrc) {
+    const mv = modelViewerPool.get(char.id);
+    const isLoaded = Boolean(mv && (mv.dataset.modelLoaded === "true" || mv.loaded));
     return `<div class="mv-slot" data-char-id="${char.id}" data-glb="${char.glbSrc}" data-color="${char.color}">
+              ${isLoaded ? '' : `
               <div class="mv-loading-spinner" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
                 <div style="width:28px;height:28px;border:3px solid rgba(0,240,255,0.2);border-top-color:${char.color};border-radius:50%;animation:spin 0.8s linear infinite;"></div>
                 <span style="color:${char.color};font-family:var(--font-tech,sans-serif);font-size:12px;letter-spacing:1px;font-weight:600;">LOADING 3D MODEL…</span>
-              </div>
+              </div>`}
             </div>`;
   }
   return char.svg;
 }
 
 /**
- * After setting innerHTML, replace every .mv-slot div with a real
- * <model-viewer> element. We wait for the custom element to be defined first.
+ * Replaces every .mv-slot with its corresponding preloaded <model-viewer> element
+ * from the persistent pool. Instant display if already loaded!
  */
-function mountModelViewers() {
+export function mountModelViewers() {
   const slots = document.querySelectorAll(".mv-slot");
   if (!slots.length) return;
 
-  const doMount = () => {
-    slots.forEach(slot => {
-      const glbSrc = slot.dataset.glb;
-      const charId = slot.dataset.charId;
-      const char = SCALE_WARS_CHARACTERS[charId];
-      if (!glbSrc) return;
+  const pool = getOrCreatePoolContainer();
 
-      try {
-        const mv = document.createElement("model-viewer");
-        mv.setAttribute("src", glbSrc);
-        mv.setAttribute("alt", (char ? char.name : "Character") + " 3D Model");
-        mv.setAttribute("auto-rotate", "");
-        mv.setAttribute("auto-rotate-delay", "0");
-        mv.setAttribute("rotation-per-second", "40deg");
-        mv.setAttribute("camera-controls", "");
-        mv.setAttribute("touch-action", "pan-y");
-        mv.setAttribute("shadow-intensity", "1");
-        mv.setAttribute("environment-image", "neutral");
-        mv.setAttribute("bounds", "tight");
-        mv.setAttribute("autoplay", "");
-        mv.setAttribute("loading", "eager");
-        mv.style.width = "100%";
-        mv.style.height = "100%";
-        mv.style.background = "transparent";
+  slots.forEach((slot) => {
+    const glbSrc = slot.dataset.glb;
+    const charId = slot.dataset.charId;
+    const char = SCALE_WARS_CHARACTERS[charId];
+    if (!glbSrc || !charId) return;
 
-        // If GLB fails to load for any reason, gracefully fall back to SVG
-        mv.addEventListener("error", (e) => {
-          console.warn("Model failed to load, falling back to SVG:", glbSrc, e);
-          if (char && char.svg) {
-            const fallbackDiv = document.createElement("div");
-            fallbackDiv.innerHTML = char.svg;
-            mv.replaceWith(fallbackDiv.firstElementChild || fallbackDiv);
-          }
-        });
+    let mv = modelViewerPool.get(charId);
+    if (!mv) {
+      mv = createPooledModelViewer(char || { id: charId, glbSrc, name: "Character" });
+      modelViewerPool.set(charId, mv);
+      pool.appendChild(mv);
+    }
 
-        slot.replaceWith(mv);
-      } catch (err) {
-        console.error("Error creating model-viewer:", err);
-        if (char && char.svg) {
-          slot.innerHTML = char.svg;
-        }
+    if (mv.dataset.modelError === "true" && char && char.svg) {
+      const fallbackDiv = document.createElement("div");
+      fallbackDiv.innerHTML = char.svg;
+      slot.replaceWith(fallbackDiv.firstElementChild || fallbackDiv);
+      return;
+    }
+
+    // Seamlessly swap the slot with the pre-rendered model-viewer
+    slot.replaceWith(mv);
+
+    // If model fails after insertion, gracefully fall back to SVG
+    mv.addEventListener("error", () => {
+      if (char && char.svg && mv.parentElement) {
+        const fallbackDiv = document.createElement("div");
+        fallbackDiv.innerHTML = char.svg;
+        mv.replaceWith(fallbackDiv.firstElementChild || fallbackDiv);
       }
-    });
-  };
-
-  // Check if model-viewer custom element is registered
-  if (customElements.get("model-viewer")) {
-    doMount();
-  } else {
-    // Wait for definition, with a 3-second timeout fallback
-    let mounted = false;
-    const timeout = setTimeout(() => {
-      if (!mounted) {
-        mounted = true;
-        // Fall back to SVG if model-viewer failed to load from script
-        slots.forEach(slot => {
-          const charId = slot.dataset.charId;
-          const char = SCALE_WARS_CHARACTERS[charId];
-          if (char && char.svg) slot.innerHTML = char.svg;
-        });
-      }
-    }, 3000);
-
-    customElements.whenDefined("model-viewer").then(() => {
-      if (!mounted) {
-        mounted = true;
-        clearTimeout(timeout);
-        doMount();
-      }
-    });
-  }
+    }, { once: true });
+  });
 }
 
 export class ScaleWarsRenderer {
+  static preloadAllModels() {
+    return preloadScaleWarsModels();
+  }
+
+  static reclaimModelViewers() {
+    reclaimActiveModelViewers();
+  }
+
+  static mountModelViewers() {
+    mountModelViewers();
+  }
+
+  static isModelLoaded(charId) {
+    const mv = modelViewerPool.get(charId);
+    return Boolean(mv && (mv.dataset.modelLoaded === "true" || mv.loaded));
+  }
+
   static renderQuestion(question, onSelectAnswer, onEstimateSubmit, onPass) {
+    // Reclaim active model-viewers to the pool before rendering new question
+    reclaimActiveModelViewers();
+
     if (question.type === "comparison") {
       return this.renderComparison(question, onSelectAnswer, onPass);
     } else if (question.type === "size_it_up" || question.type === "interactive_scale") {
@@ -186,28 +307,25 @@ export class ScaleWarsRenderer {
 
           <div class="ruler-track-container" id="rulerTrackContainer">
             <div class="ruler-track" id="rulerTrack">
-              <!-- Ruler Marks: 0m to 20m -->
-              <div class="ruler-mark" style="left: 0%"><span class="ruler-tick major"></span><span class="ruler-num">0</span></div>
-              <div class="ruler-mark" style="left: 5%"><span class="ruler-tick"></span></div>
-              <div class="ruler-mark" style="left: 10%"><span class="ruler-tick major"></span><span class="ruler-num">2 m</span></div>
-              <div class="ruler-mark" style="left: 15%"><span class="ruler-tick"></span></div>
-              <div class="ruler-mark" style="left: 20%"><span class="ruler-tick major"></span><span class="ruler-num">4 m</span></div>
-              <div class="ruler-mark" style="left: 25%"><span class="ruler-tick"></span></div>
-              <div class="ruler-mark" style="left: 30%"><span class="ruler-tick major"></span><span class="ruler-num">6 m</span></div>
-              <div class="ruler-mark" style="left: 35%"><span class="ruler-tick"></span></div>
-              <div class="ruler-mark" style="left: 40%"><span class="ruler-tick major"></span><span class="ruler-num">8 m</span></div>
-              <div class="ruler-mark" style="left: 45%"><span class="ruler-tick"></span></div>
-              <div class="ruler-mark" style="left: 50%"><span class="ruler-tick major"></span><span class="ruler-num">10 m</span></div>
-              <div class="ruler-mark" style="left: 55%"><span class="ruler-tick"></span></div>
-              <div class="ruler-mark" style="left: 60%"><span class="ruler-tick major"></span><span class="ruler-num">12 m</span></div>
-              <div class="ruler-mark" style="left: 65%"><span class="ruler-tick"></span></div>
-              <div class="ruler-mark" style="left: 70%"><span class="ruler-tick major"></span><span class="ruler-num">14 m</span></div>
-              <div class="ruler-mark" style="left: 75%"><span class="ruler-tick"></span></div>
-              <div class="ruler-mark" style="left: 80%"><span class="ruler-tick major"></span><span class="ruler-num">16 m</span></div>
-              <div class="ruler-mark" style="left: 85%"><span class="ruler-tick"></span></div>
-              <div class="ruler-mark" style="left: 90%"><span class="ruler-tick major"></span><span class="ruler-num">18 m</span></div>
-              <div class="ruler-mark" style="left: 95%"><span class="ruler-tick"></span></div>
-              <div class="ruler-mark" style="left: 100%"><span class="ruler-tick major"></span><span class="ruler-num">20 m</span></div>
+              ${(() => {
+                if (maxM <= 6) {
+                  let marks = "";
+                  for (let m = 0; m <= maxM; m += 0.5) {
+                    const isMajor = (m % 1 === 0);
+                    const pct = (m / maxM) * 100;
+                    marks += `<div class="ruler-mark" style="left: ${pct.toFixed(2)}%"><span class="ruler-tick ${isMajor ? 'major' : ''}"></span>${isMajor ? `<span class="ruler-num">${m === 0 ? '0' : m + ' m'}</span>` : ''}</div>`;
+                  }
+                  return marks;
+                } else {
+                  let marks = "";
+                  for (let m = 0; m <= maxM; m += 1) {
+                    const isMajor = (m % 2 === 0);
+                    const pct = (m / maxM) * 100;
+                    marks += `<div class="ruler-mark" style="left: ${pct.toFixed(2)}%"><span class="ruler-tick ${isMajor ? 'major' : ''}"></span>${isMajor ? `<span class="ruler-num">${m === 0 ? '0' : m + ' m'}</span>` : ''}</div>`;
+                  }
+                  return marks;
+                }
+              })()}
 
               <!-- Red Slider Cursor Needle -->
               <div class="ruler-cursor-indicator dark-cursor" id="rulerCursorIndicator">
@@ -270,25 +388,27 @@ export class ScaleWarsRenderer {
       if (liveM) liveM.textContent = `${currentM.toFixed(2)} m`;
       if (liveFt) liveFt.textContent = `${(currentM * 3.28084).toFixed(2)} ft tall`;
 
-      // Proportional pixel scaling relative to 8.5m Optimus Prime
+      // Proportional pixel scaling relative to reference entity height
       const scaleFactor = currentM / refLenM; // e.g. 10.67 / 8.50 = 1.255
       const targetHeightPx = Math.round(BASE_HEIGHT_PX * scaleFactor);
       const targetWidthPx = Math.round(BASE_WIDTH_PX * scaleFactor);
 
       if (targetAnchor) {
-        targetAnchor.style.height = `${targetHeightPx}px`;
-        targetAnchor.style.width = `${targetWidthPx}px`;
+        // Guarantee character model stays clearly visible (at least 55px tall)
+        const displayH = Math.max(55, targetHeightPx);
+        const displayW = Math.max(48, targetWidthPx);
+        targetAnchor.style.height = `${displayH}px`;
+        targetAnchor.style.width = `${displayW}px`;
       }
 
       if (targetGraphic) {
-        targetGraphic.style.transform = `scale(${scaleFactor.toFixed(3)})`;
-        targetGraphic.style.transformOrigin = "bottom center";
-        targetGraphic.style.height = `${BASE_HEIGHT_PX}px`;
-        targetGraphic.style.width = `${BASE_WIDTH_PX}px`;
+        targetGraphic.style.transform = "none";
+        targetGraphic.style.height = "100%";
+        targetGraphic.style.width = "100%";
       }
 
-      // Cursor position on 0m -> 20m track
-      const pct = Math.max(0, Math.min(100, (currentM / 20.0) * 100));
+      // Cursor position on 0m -> maxM track
+      const pct = Math.max(0, Math.min(100, (currentM / maxM) * 100));
       if (cursor) {
         cursor.style.left = `${pct}%`;
       }
@@ -303,7 +423,7 @@ export class ScaleWarsRenderer {
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const relX = Math.max(0, Math.min(rect.width, clientX - rect.left));
       const fraction = relX / rect.width;
-      const newM = fraction * 20.0;
+      const newM = fraction * maxM;
       renderScale(newM);
     };
 
@@ -332,7 +452,7 @@ export class ScaleWarsRenderer {
     const moveStageDrag = (clientY) => {
       if (!isDraggingStage) return;
       const deltaY = startY - clientY; // Dragging UP increases size
-      const deltaM = (deltaY / 220) * 10.0; // Responsive sensitivity
+      const deltaM = (deltaY / 220) * (maxM * 0.4); // Responsive sensitivity
       renderScale(startM + deltaM);
     };
 
@@ -367,23 +487,25 @@ export class ScaleWarsRenderer {
     window.addEventListener("touchend", onPointerUp);
 
     // 3. Step buttons (-) and (+)
+    const stepDelta = maxM <= 6 ? 0.05 : 0.25;
     if (btnMinus) {
       btnMinus.addEventListener("click", () => {
-        renderScale(currentM - 0.25);
+        renderScale(currentM - stepDelta);
       });
     }
     if (btnPlus) {
       btnPlus.addEventListener("click", () => {
-        renderScale(currentM + 0.25);
+        renderScale(currentM + stepDelta);
       });
     }
 
     // 4. Keyboard Arrow Controls
+    const arrowDelta = maxM <= 6 ? 0.02 : 0.1;
     const onKeyDown = (e) => {
       if (e.key === "ArrowUp" || e.key === "ArrowRight") {
-        renderScale(currentM + 0.1);
+        renderScale(currentM + arrowDelta);
       } else if (e.key === "ArrowDown" || e.key === "ArrowLeft") {
-        renderScale(currentM - 0.1);
+        renderScale(currentM - arrowDelta);
       } else if (e.key === "Enter") {
         if (onEstimateSubmit) onEstimateSubmit(currentM);
       }

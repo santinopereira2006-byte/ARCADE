@@ -30,6 +30,22 @@
   <link rel="stylesheet" href="css/admin-auth-modal.css?v=1.0">
   <link rel="stylesheet" href="css/organizer-modal.css?v=1.0">
 
+  <!-- Preload Scale Wars 3D Model assets for instant rendering -->
+  <link rel="prefetch" href="models/mario-mini/source/mario.glb" as="fetch" crossorigin="anonymous">
+  <link rel="prefetch" href="models/pikachu/source/pikachu2.glb" as="fetch" crossorigin="anonymous">
+  <link rel="prefetch" href="models/masterchief/scene.gltf" as="fetch" crossorigin="anonymous">
+  <link rel="prefetch" href="models/masterchief/scene.bin" as="fetch" crossorigin="anonymous">
+  <link rel="prefetch" href="models/hulk/scene.gltf" as="fetch" crossorigin="anonymous">
+  <link rel="prefetch" href="models/hulk/scene.bin" as="fetch" crossorigin="anonymous">
+  <link rel="prefetch" href="models/optimus_prime/scene.gltf" as="fetch" crossorigin="anonymous">
+  <link rel="prefetch" href="models/optimus_prime/scene.bin" as="fetch" crossorigin="anonymous">
+  <link rel="prefetch" href="models/megatron/scene.gltf" as="fetch" crossorigin="anonymous">
+  <link rel="prefetch" href="models/megatron/scene.bin" as="fetch" crossorigin="anonymous">
+  <link rel="prefetch" href="models/shrek/scene.gltf" as="fetch" crossorigin="anonymous">
+  <link rel="prefetch" href="models/shrek/scene.bin" as="fetch" crossorigin="anonymous">
+  <link rel="prefetch" href="models/thanos/scene.gltf" as="fetch" crossorigin="anonymous">
+  <link rel="prefetch" href="models/thanos/scene.bin" as="fetch" crossorigin="anonymous">
+
   <!-- Bare-specifier map so vendored Three.js addons work with no build step -->
   <script type="importmap">
     {
@@ -45,6 +61,9 @@
 
   <!-- Antigravity 3D Particle Background Field (@react-bits/Antigravity) -->
   <canvas id="antigravity-canvas" class="antigravity-canvas" aria-hidden="true"></canvas>
+
+  <!-- Scale Wars 3D Model Pre-rendering Pool (offscreen WebGL cache) -->
+  <div id="scale-wars-model-pool" class="scale-wars-model-pool" aria-hidden="true"></div>
 
   <!-- App Main Viewport -->
   <main class="app-viewport">
@@ -243,7 +262,7 @@
             <h3 class="card-title">BLACKOUT CODE</h3>
             <span class="card-theme">5-Round Memory Speed-Coding</span>
             <p class="card-desc">
-              Memorize increasingly complex code across Python, JS, C++, and Rust before blackout shutters drop.
+              Memorize fundamental JavaScript logic before blackout shutters drop.
               8-minute global timer with 1000 max points!
             </p>
           </div>
@@ -387,7 +406,7 @@
             <span class="rule-icon">⚡</span>
             <h4>Blackout Code Rules</h4>
             <p>5 progressive rounds under a single 8-minute global timer. Memorize the code before blackout shutters
-              drop (12s, 10s, 4s, and 10s sprint). 1000 max points!</p>
+              drop (12s, 10s, 4s, and 20s sprint). 1000 max points!</p>
           </div>
 
           <div class="rule-card">
@@ -480,6 +499,10 @@
               <b>E</b> play cabinet · <b>Q</b> camo · <b>ESC</b> pause</span>
           </div>
           <div class="room3d-hud-right">
+            <div class="room3d-score-badge" id="room3dScoreBox" title="Total Accumulated Tournament Score">
+              <span class="room3d-score-label">POINTS</span>
+              <span class="room3d-score-val" id="room3dTotalScore">000</span>
+            </div>
             <label class="room3d-sens" title="Camera sensitivity">SENS<input type="range" id="room3dSens" min="40"
                 max="250" value="100" /></label>
             <button type="button" class="btn-secondary-gaming room3d-exit" id="btnRoom3dExit">🏠 LEAVE THE
@@ -514,13 +537,15 @@
                 min="40" max="250" value="100" /></label>
             <label class="room3d-sens pause-sens" id="pauseQualityRow" hidden>QUALITY
               <select id="room3dQuality">
-                <option value="low">LOW</option>
+                <option value="low" selected>LOW (PERFORMANCE)</option>
                 <option value="medium">MEDIUM</option>
-                <option value="high">HIGH</option>
+                <option value="high">HIGH (ULTRA)</option>
               </select>
             </label>
           </div>
         </div>
+
+        <div class="room3d-toast" id="room3dToast" role="status" aria-live="polite"></div>
 
         <div class="room3d-prompt" id="room3dPrompt">
           <span class="room3d-prompt-round" id="room3dPromptRound">ROUND 1 / 5</span>

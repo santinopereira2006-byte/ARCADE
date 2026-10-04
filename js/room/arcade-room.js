@@ -16,6 +16,7 @@ import { CollisionWorld } from "./collision.js";
 import { addBaseLights, addCornerGlow, addNeonAccents } from "./lighting.js";
 import { RoomDecor } from "./decor.js";
 import { LeaderboardManager } from "../leaderboard.js";
+import { state } from "../state.js";
 
 const ROOM_URL = "models/room-blank/source/Room%20house.gltf";
 
@@ -67,6 +68,15 @@ const SPAWN = { x: 0, z: 8.2 };    // front of the arena, looking at the dance f
 
 const UP = new THREE.Vector3(0, 1, 0);
 
+// Reusable scratch vectors to avoid per-frame GC allocations in tick()
+const _v1 = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
+const _v3 = new THREE.Vector3();
+const _camLook = new THREE.Vector3();
+const _camWant = new THREE.Vector3();
+const _camTarget = new THREE.Vector3();
+const _deltaMove = new THREE.Vector3();
+
 /** Yaw that rotates `localDir` onto `desiredDir` (both XZ vectors). */
 function yawBetween(localDir, desiredDir) {
   return Math.atan2(localDir.x, -localDir.z) - Math.atan2(desiredDir.x, -desiredDir.z);
@@ -107,6 +117,7 @@ export class ArcadeRoom3D {
     this.clock = new THREE.Clock();
     this.bounds = { x: 10, z: 8 };
     this.cabinetSpots = [];
+    this.cabinetLights = [];
     this.dragging = false;
     this._boundHandlers = {};
     this.fighter = FIGHTER;
@@ -128,7 +139,20 @@ export class ArcadeRoom3D {
     this.tongueT = -1;
     this.tongueCooldown = 0;
     this.camSens = parseFloat(localStorage.getItem("arcade_cam_sens") || "1") || 1;
-    this.quality = localStorage.getItem("arcade_quality") || "medium";
+    // Quality setting: strictly defaults to Low for smooth, ultra-fast loading on all machines,
+    // but fully respects manual user selection in the pause menu if explicitly changed.
+    const savedQuality = localStorage.getItem("arcade_quality");
+    this.manualQuality = localStorage.getItem("arcade_manual_quality") === "true";
+    this.quality = (this.manualQuality && savedQuality) ? savedQuality : "low";
+    this.resScale = this.quality === "low" ? 0.70 : (this.quality === "medium" ? 0.85 : 1.0);
+  }
+
+  /**
+   * Sniffs the WebGL renderer string to detect integrated / low-end GPUs.
+   * Defaults to "low" for guaranteed performance on low-end hardware.
+   */
+  static _detectDefaultQuality() {
+    return "low";
   }
 
   async init(onLaunchRound, onExit) {
@@ -141,19 +165,20 @@ export class ArcadeRoom3D {
 
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
-      antialias: true,
+      antialias: false,
       powerPreference: "high-performance"
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.shadowMap.enabled = false;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMapping = this.quality === "low" ? THREE.LinearToneMapping : THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.12;
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x05070d);
-    this.scene.fog = new THREE.Fog(0x05070d, 18, 46);
+    this.scene.fog = new THREE.Fog(0x05070d, 12, 32);
 
-    this.camera = new THREE.PerspectiveCamera(58, 1, 0.1, 200);
+    this.camera = new THREE.PerspectiveCamera(58, 1, 0.1, 100);
     this.camera.position.set(0, 4, 10);
 
     this.addLights();
@@ -171,8 +196,16 @@ export class ArcadeRoom3D {
     );
     this.addFloorGrid();
     this.buildScenery();
+    this.createBlobShadow();
     this.setProgress(0.85, "Dropping the dance floor…");
     await this.loadDecor();
+    // Snap character to the real floor now that decor (and its floorY) is loaded.
+    if (this.character) {
+      const spawnGround = this.groundHeightAt(this.character.position.x, this.character.position.z);
+      this.character.position.y = spawnGround;
+      this.vertY = spawnGround;
+      this.grounded = true;
+    }
     this.buildCollision();
     this.initComposer();
 
@@ -336,6 +369,7 @@ export class ArcadeRoom3D {
   async loadDecor() {
     try {
       this.decor = new RoomDecor(this.scene, this.bounds, {
+        quality: this.quality,
         envMap: this.envTexture,
         floorY: this.measureFloorY(),
         walls: this.measureWalls(),
@@ -348,6 +382,61 @@ export class ArcadeRoom3D {
     }
   }
 
+  createBlobShadow() {
+    if (this.blobShadow) return;
+    const c = document.createElement("canvas");
+    c.width = 64;
+    c.height = 64;
+    const ctx = c.getContext("2d");
+    const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, "rgba(0, 0, 0, 0.7)");
+    g.addColorStop(0.5, "rgba(0, 0, 0, 0.35)");
+    g.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 64, 64);
+
+    const tex = new THREE.CanvasTexture(c);
+    const geo = new THREE.PlaneGeometry(1.0, 1.0);
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 0.75,
+      depthWrite: false
+    });
+    const shadow = new THREE.Mesh(geo, mat);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.015;
+    this.scene.add(shadow);
+    this.blobShadow = shadow;
+  }
+
+  optimizeMaterials(root) {
+    if (!root) return;
+    root.traverse(node => {
+      if (!node.isMesh) return;
+      node.frustumCulled = true;
+      if (!node.material) return;
+      const mats = Array.isArray(node.material) ? node.material : [node.material];
+      mats.forEach(m => {
+        if (this.quality === "low") {
+          m.envMap = null;
+          m.normalMap = null;
+          m.roughnessMap = null;
+          m.metalnessMap = null;
+          if (m.roughness !== undefined) m.roughness = 0.9;
+          if (m.metalness !== undefined) m.metalness = 0.05;
+        }
+        ["map", "emissiveMap"].forEach(key => {
+          const tex = m[key];
+          if (tex && tex.isTexture) {
+            tex.generateMipmaps = this.quality !== "low";
+            tex.minFilter = this.quality === "low" ? THREE.LinearFilter : THREE.LinearMipmapLinearFilter;
+          }
+        });
+      });
+    });
+  }
+
   groundHeightAt(x, z) {
     return this.decor ? this.decor.groundHeightAt(x, z) : 0;
   }
@@ -355,9 +444,22 @@ export class ArcadeRoom3D {
   /** Height of the room model's walkable floor at the centre (it sits a little above y=0). */
   measureFloorY() {
     if (!this.room) return 0;
-    const ray = new THREE.Raycaster(new THREE.Vector3(0.2, 2, 0.2), new THREE.Vector3(0, -1, 0), 0, 4);
-    const hit = ray.intersectObject(this.room, true).find(h => h.point.y < 0.6);
-    return hit ? hit.point.y + 0.004 : 0;
+    // Cast from OUTSIDE the dance floor zone (half-size 4.55 m) so we hit the
+    // room's actual floor, not any raised platform that might load first.
+    const probes = [
+      new THREE.Vector3(0, 3, 7),    // near front wall, clear of dance floor
+      new THREE.Vector3(7, 3, 0),    // side wall area
+      new THREE.Vector3(-7, 3, 0),   // opposite side
+      new THREE.Vector3(0, 3, -7),   // back wall area
+      new THREE.Vector3(0.2, 2, 0.2) // legacy centre fallback
+    ];
+    const dir = new THREE.Vector3(0, -1, 0);
+    for (const origin of probes) {
+      const ray = new THREE.Raycaster(origin, dir, 0, 5);
+      const hit = ray.intersectObject(this.room, true).find(h => h.point.y < 0.5);
+      if (hit) return hit.point.y + 0.004;
+    }
+    return 0;
   }
 
   /**
@@ -392,13 +494,14 @@ export class ArcadeRoom3D {
 
   /** Glossy reflective floor overlay so neon pools and cabinets mirror. */
   addGlossyFloor() {
+    if (this.quality === "low") return;
     const geo = new THREE.PlaneGeometry(this.bounds.x * 2 + 2, this.bounds.z * 2 + 2);
     const mat = new THREE.MeshStandardMaterial({
       color: 0x0a0e1c,
-      roughness: 0.35,
-      metalness: 0.6,
-      envMap: this.envTexture || null,
-      envMapIntensity: 0.7
+      roughness: 0.45,
+      metalness: 0.5,
+      envMap: this.quality === "high" ? (this.envTexture || null) : null,
+      envMapIntensity: 0.5
     });
     const floor = new THREE.Mesh(geo, mat);
     floor.rotation.x = -Math.PI / 2;
@@ -534,6 +637,7 @@ export class ArcadeRoom3D {
           if (m.emissive) m.emissive.multiplyScalar(0.25);
         });
       });
+      this.optimizeMaterials(room);
       this.room = room;
       this.roomSource = "gltf";
       this.addCornerGlow();
@@ -595,7 +699,10 @@ export class ArcadeRoom3D {
   }
 
   async loadCabinets() {
-    const prototypes = await Promise.all(MACHINE_MODELS.map(async (cfg) => {
+    const isLow = this.quality === "low";
+    // On low graphics, load only the low-poly pixel machine prototype once and share it across cabinets
+    const modelsToLoad = isLow ? [MACHINE_MODELS[0]] : MACHINE_MODELS;
+    const loadedPrototypes = await Promise.all(modelsToLoad.map(async (cfg) => {
       try {
         const gltf = await this.loadGltf(cfg.url);
         return this.prepareMachinePrototype(gltf.scene, cfg);
@@ -604,6 +711,9 @@ export class ArcadeRoom3D {
         return this.prepareMachinePrototype(this.buildFallbackCabinet(), cfg);
       }
     }));
+    const prototypes = isLow
+      ? [loadedPrototypes[0], loadedPrototypes[0], loadedPrototypes[0]]
+      : loadedPrototypes;
     this.machinePrototypes = prototypes;
 
     const ringX = Math.min(CABINET_RING, this.bounds.x - 1.2);
@@ -613,6 +723,7 @@ export class ArcadeRoom3D {
       const proto = prototypes[cfg.machine] || prototypes[0];
       const cab = proto.root.clone(true);
       cab.scale.setScalar(proto.scale);
+      this.optimizeMaterials(cab);
 
       const holder = new THREE.Group();
       holder.add(cab);
@@ -731,7 +842,10 @@ export class ArcadeRoom3D {
 
     const light = new THREE.PointLight(color, 5.5, 9, 2);
     light.position.set(fwd.x * 1.2, CABINET_HEIGHT * 0.75, fwd.z * 1.2);
+    if (this.quality === "low") light.visible = false;
     holder.add(light);
+    if (!this.cabinetLights) this.cabinetLights = [];
+    this.cabinetLights.push(light);
 
     holder.userData.pulse = { ring, light, base: 5.5, phase: cfg.round * 0.7, screen };
   }
@@ -752,48 +866,84 @@ export class ArcadeRoom3D {
   }
 
   drawAttractScreen(s, t) {
-    const { ctx, hex } = s;
+    const { ctx } = s;
     const w = ctx.canvas.width;
     const h = ctx.canvas.height;
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "rgba(2,4,12,0.9)";
+
+    const isCompleted = state.isRoundCompleted(s.round);
+    const nextRound = state.getNextAvailableRound();
+    const isNext = s.round === nextRound;
+    const isLocked = s.round > nextRound;
+    const roundScore = state.roundScores[s.round] || 0;
+
+    const hex = isCompleted ? "#10b981" : (isLocked ? "#475569" : s.hex);
+
+    ctx.fillStyle = isCompleted ? "rgba(2,16,10,0.92)" : (isLocked ? "rgba(10,12,18,0.92)" : "rgba(2,4,12,0.9)");
     ctx.fillRect(0, 0, w, h);
 
-    // Equalizer bars
-    for (let i = 0; i < 12; i++) {
-      const bh = (0.25 + 0.75 * Math.abs(Math.sin(t * 2.2 + i * 0.7 + s.phase))) * h * 0.34;
-      ctx.fillStyle = hex;
-      ctx.globalAlpha = 0.55;
-      ctx.fillRect(8 + i * 20, h - 14 - bh, 12, bh);
+    if (!isLocked) {
+      // Equalizer bars
+      for (let i = 0; i < 12; i++) {
+        const bh = (0.25 + 0.75 * Math.abs(Math.sin(t * 2.2 + i * 0.7 + s.phase))) * h * 0.34;
+        ctx.fillStyle = hex;
+        ctx.globalAlpha = isCompleted ? 0.35 : 0.55;
+        ctx.fillRect(8 + i * 20, h - 14 - bh, 12, bh);
+      }
+      ctx.globalAlpha = 1;
     }
-    ctx.globalAlpha = 1;
 
     // Scanline sweep
     const sy = (t * 60 + s.phase * 40) % h;
     const grad = ctx.createLinearGradient(0, sy - 18, 0, sy + 18);
     grad.addColorStop(0, "rgba(255,255,255,0)");
-    grad.addColorStop(0.5, "rgba(255,255,255,0.35)");
+    grad.addColorStop(0.5, isCompleted ? "rgba(16,185,129,0.25)" : (isLocked ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.35)"));
     grad.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = grad;
     ctx.fillRect(0, sy - 18, w, 36);
 
     ctx.textAlign = "center";
     ctx.fillStyle = hex;
-    ctx.font = "900 34px Orbitron, 'Segoe UI', sans-serif";
-    ctx.fillText("ROUND " + s.round, w / 2, 52);
+    ctx.font = "900 32px Orbitron, 'Segoe UI', sans-serif";
+    ctx.fillText("ROUND " + s.round, w / 2, 46);
+
     ctx.fillStyle = "#ffffff";
-    let fs = 26;
+    let fs = 24;
     ctx.font = `700 ${fs}px Orbitron, 'Segoe UI', sans-serif`;
     while (ctx.measureText(s.name).width > w - 24 && fs > 12) {
       fs -= 2;
       ctx.font = `700 ${fs}px Orbitron, 'Segoe UI', sans-serif`;
     }
-    ctx.fillText(s.name, w / 2, 88);
-    ctx.fillStyle = hex;
-    ctx.font = "700 18px Orbitron, 'Segoe UI', sans-serif";
-    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 4 + s.phase);
-    ctx.fillText("PRESS E TO PLAY", w / 2, h - 26);
-    ctx.globalAlpha = 1;
+    ctx.fillText(s.name, w / 2, 80);
+
+    if (isCompleted) {
+      ctx.fillStyle = "#10b981";
+      ctx.font = "900 18px Orbitron, 'Segoe UI', sans-serif";
+      ctx.fillText("✓ CLEARED", w / 2, 122);
+      ctx.fillStyle = "#ffe600";
+      ctx.font = "700 16px 'JetBrains Mono', monospace";
+      ctx.fillText(`SCORE: ${roundScore} PTS`, w / 2, 150);
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.font = "600 13px 'Rajdhani', sans-serif";
+      ctx.fillText("[COMPLETED]", w / 2, h - 14);
+    } else if (isNext) {
+      ctx.fillStyle = "#ffe600";
+      ctx.font = "700 17px Orbitron, 'Segoe UI', sans-serif";
+      ctx.fillText("★ NEXT MISSION ★", w / 2, 120);
+      ctx.fillStyle = hex;
+      ctx.font = "700 18px Orbitron, 'Segoe UI', sans-serif";
+      ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 4 + s.phase);
+      ctx.fillText("PRESS E TO PLAY", w / 2, h - 24);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = "#ef4444";
+      ctx.font = "700 17px Orbitron, 'Segoe UI', sans-serif";
+      ctx.fillText("🔒 LOCKED", w / 2, 122);
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "600 14px 'Rajdhani', sans-serif";
+      ctx.fillText(`CLEAR ROUND ${nextRound} FIRST`, w / 2, 150);
+    }
+
     s.tex.needsUpdate = true;
   }
 
@@ -939,7 +1089,11 @@ export class ArcadeRoom3D {
     model.position.x -= aw.x - this.character.position.x;
     model.position.z -= aw.z - this.character.position.z;
     const groundY = useSkinned ? Math.min(posed.min.y, skinnedBox.min.y) : posed.min.y;
-    model.position.y -= groundY - this.character.position.y;
+    // Skinned-mesh bounding boxes are derived from bind-pose bone positions and
+    // often sit slightly above the visual foot surface. Sink the model down a
+    // small constant so feet visually make contact with the floor.
+    const FOOT_SINK = 0.04;
+    model.position.y -= groundY - this.character.position.y + FOOT_SINK;
     model.updateMatrixWorld(true);
     this.modelBaseY = model.position.y;
 
@@ -1259,48 +1413,23 @@ export class ArcadeRoom3D {
   }
 
   initComposer() {
+    if (this.quality === "low") {
+      this.composer = null;
+      return;
+    }
     try {
       const size = new THREE.Vector2();
       this.renderer.getSize(size);
       this.composer = new EffectComposer(this.renderer);
       this.composer.addPass(new RenderPass(this.scene, this.camera));
-      this.bloomPass = new UnrealBloomPass(size, 0.62, 0.75, 0.55);
+      // Lightweight single bloom pass (cheap threshold and small blur radius)
+      this.bloomPass = new UnrealBloomPass(size, 0.45, 0.4, 0.8);
       this.composer.addPass(this.bloomPass);
-      this.composer.addPass(this.makeFilmPass());
       this.composer.addPass(new OutputPass());
     } catch (err) {
       console.warn("Bloom composer unavailable, rendering direct:", err);
       this.composer = null;
     }
-  }
-
-  /** Subtle vignette + animated film grain to give the neon room a CRT feel. */
-  makeFilmPass() {
-    const shader = {
-      uniforms: {
-        tDiffuse: { value: null },
-        uTime: { value: 0 },
-        uVignette: { value: 0.32 },
-        uGrain: { value: 0.035 }
-      },
-      vertexShader:
-        "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
-      fragmentShader: [
-        "uniform sampler2D tDiffuse; uniform float uTime; uniform float uVignette; uniform float uGrain;",
-        "varying vec2 vUv;",
-        "float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }",
-        "void main(){",
-        "  vec4 c = texture2D(tDiffuse, vUv);",
-        "  vec2 q = vUv - 0.5;",
-        "  float vig = smoothstep(0.95, 0.25, dot(q,q) * 1.9);",
-        "  c.rgb *= mix(1.0, vig, uVignette);",
-        "  c.rgb += (hash(vUv * 913.0 + uTime) - 0.5) * uGrain;",
-        "  gl_FragColor = c;",
-        "}"
-      ].join("\n")
-    };
-    this.filmPass = new ShaderPass(shader);
-    return this.filmPass;
   }
 
   loadGltf(url) {
@@ -1311,14 +1440,69 @@ export class ArcadeRoom3D {
 
   // ------------------------------------------------------------------ lifecycle
 
+  setReturnPosition(roundJustFinished) {
+    if (!this.character) return;
+    const spot = this.cabinetSpots.find(s => s.round === Number(roundJustFinished));
+    if (spot) {
+      // Step back ~2.4 metres from the cabinet toward the room center
+      const dirToCenter = new THREE.Vector3(-spot.position.x, 0, -spot.position.z).normalize();
+      this.character.position.copy(spot.position).addScaledVector(dirToCenter, 2.4);
+      const ground = this.groundHeightAt(this.character.position.x, this.character.position.z);
+      this.character.position.y = ground;
+      this.vertY = ground;
+      this.charYaw = Math.atan2(dirToCenter.x, -dirToCenter.z);
+      this.character.rotation.y = this.forwardAlpha - this.charYaw;
+      this.cameraYaw = this.charYaw;
+      if (this.camera) {
+        this.camera.position.set(
+          this.character.position.x - dirToCenter.x * 4.2,
+          this.character.position.y + 2.4,
+          this.character.position.z - dirToCenter.z * 4.2
+        );
+      }
+    }
+  }
+
+  showToast(message, type = "info") {
+    let toast = document.getElementById("room3dToast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "room3dToast";
+      toast.className = "room3d-toast";
+      const stage = document.querySelector(".room3d-stage") || document.body;
+      stage.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.className = `room3d-toast visible ${type}`;
+    if (this._toastTimeout) clearTimeout(this._toastTimeout);
+    this._toastTimeout = setTimeout(() => {
+      toast.classList.remove("visible");
+    }, 3500);
+  }
+
   enter() {
     if (!this.ready) return false;
     this.active = true;
     this.clock.getDelta();
     document.body.classList.add("room3d-mode");
+
+    const scoreValEl = document.getElementById("room3dTotalScore");
+    if (scoreValEl) scoreValEl.textContent = String(state.totalScore).padStart(3, "0");
+
     this.resize();
     requestAnimationFrame(() => this.resize());
-    this.renderer.setAnimationLoop(() => this.tick());
+
+    let lastFrameTime = performance.now();
+    const frameInterval = 1000 / 60; // 60 FPS frame rate cap
+
+    this.renderer.setAnimationLoop(() => {
+      if (this.tabHidden || document.hidden) return;
+      const now = performance.now();
+      const elapsed = now - lastFrameTime;
+      if (elapsed < frameInterval - 1) return;
+      lastFrameTime = now - (elapsed % frameInterval);
+      this.tick();
+    });
     if (this.canvas) this.canvas.focus();
     return true;
   }
@@ -1349,11 +1533,18 @@ export class ArcadeRoom3D {
       this.canvas.removeEventListener("pointerdown", this._boundHandlers.pointerdown);
       this.canvas.removeEventListener("contextmenu", this._boundHandlers.contextmenu);
     }
+    if (this._boundHandlers.visibility) {
+      document.removeEventListener("visibilitychange", this._boundHandlers.visibility);
+    }
     const sensEl = document.getElementById("room3dSens");
     if (sensEl && this._boundHandlers.sens) sensEl.removeEventListener("input", this._boundHandlers.sens);
     const pauseSensEl = document.getElementById("room3dSensPause");
     if (pauseSensEl && this._boundHandlers.pauseSens) pauseSensEl.removeEventListener("input", this._boundHandlers.pauseSens);
-    ["btnPauseResume", "btnPauseSettings", "btnPauseLeave", "room3dQuality"].forEach(id => {
+    const qualityEl = document.getElementById("room3dQuality");
+    if (qualityEl && this._boundHandlers.qualityChange) {
+      qualityEl.removeEventListener("change", this._boundHandlers.qualityChange);
+    }
+    ["btnPauseResume", "btnPauseSettings", "btnPauseLeave"].forEach(id => {
       const el = document.getElementById(id);
       const fn = this._boundHandlers["click_" + id];
       if (el && fn) el.removeEventListener("click", fn);
@@ -1507,10 +1698,19 @@ export class ArcadeRoom3D {
       if (row) row.hidden = !this._settingsOpen;
       if (qrow) qrow.hidden = !this._settingsOpen;
     });
+    this._boundHandlers.visibility = () => {
+      this.tabHidden = document.hidden;
+    };
+    document.addEventListener("visibilitychange", this._boundHandlers.visibility);
+
     const qualityEl = document.getElementById("room3dQuality");
     if (qualityEl) {
-      qualityEl.value = this.quality || "medium";
-      this._onClick(qualityEl, () => this.applyQuality(qualityEl.value));
+      qualityEl.value = this.quality || "low";
+      this._boundHandlers.qualityChange = () => {
+        this.applyQuality(qualityEl.value, true);
+        this.showToast(`Graphics set to ${qualityEl.value.toUpperCase()}`, "info");
+      };
+      qualityEl.addEventListener("change", this._boundHandlers.qualityChange);
     }
     const leaveBtn = document.getElementById("btnPauseLeave");
     if (leaveBtn) this._onClick(leaveBtn, () => { this.togglePause(false); if (this.onExit) this.onExit(); });
@@ -1531,6 +1731,8 @@ export class ArcadeRoom3D {
       this.crouching = false;
       this.aiming = false;
       if (document.pointerLockElement) document.exitPointerLock?.();
+      const qEl = document.getElementById("room3dQuality");
+      if (qEl) qEl.value = this.quality || "low";
     } else if (this.canvas) {
       this.canvas.focus();
     }
@@ -1541,8 +1743,11 @@ export class ArcadeRoom3D {
     if (!this.renderer || !this.canvas) return;
     const w = this.canvas.clientWidth || window.innerWidth;
     const h = this.canvas.clientHeight || window.innerHeight;
-    this.renderer.setSize(w, h, false);
-    if (this.composer) this.composer.setSize(w, h);
+    const s = this.resScale || (this.quality === "low" ? 0.75 : (this.quality === "medium" ? 0.85 : 1.0));
+    const rw = Math.max(320, Math.round(w * s));
+    const rh = Math.max(240, Math.round(h * s));
+    this.renderer.setSize(rw, rh, false);
+    if (this.composer) this.composer.setSize(rw, rh);
     const aspect = w / Math.max(1, h);
     this.camera.aspect = aspect;
     this.baseFov = this.fovForAspect(aspect);
@@ -1566,9 +1771,26 @@ export class ArcadeRoom3D {
       this.renderFrame();
       return;
     }
+
+    // FPS tracking for diagnostics
+    const now = performance.now();
+    if (!this._fpsTime) {
+      this._fpsTime = now;
+      this._fpsFrames = 0;
+    }
+    this._fpsFrames++;
+    if (now - this._fpsTime >= 1000) {
+      const currentFps = (this._fpsFrames * 1000) / (now - this._fpsTime);
+      this._currentFps = Math.round(currentFps);
+      this._fpsTime = now;
+      this._fpsFrames = 0;
+    }
+
     // Fixed-timestep physics so movement is identical at any frame rate; the
     // camera is updated once afterwards from the settled position (no jitter).
-    const FIXED = 1 / 120;
+    // On Low quality, physFixedHz is 60 (half the default 120) to save CPU.
+    const fixedHz = this._physFixedHz || 60;
+    const FIXED = 1 / fixedHz;
     this._physAcc = (this._physAcc || 0) + dt;
     let guard = 0;
     while (this._physAcc >= FIXED && guard < 8) {
@@ -1577,6 +1799,17 @@ export class ArcadeRoom3D {
       guard++;
     }
     if (guard >= 8) this._physAcc = 0;
+
+    if (this.blobShadow && this.character) {
+      this.blobShadow.position.x = this.character.position.x;
+      this.blobShadow.position.z = this.character.position.z;
+      const ground = this.groundHeightAt(this.character.position.x, this.character.position.z);
+      this.blobShadow.position.y = ground + 0.015;
+      const airDist = Math.max(0, this.vertY - ground);
+      this.blobShadow.scale.setScalar(Math.max(0.4, 1 - airDist * 0.25));
+      this.blobShadow.material.opacity = Math.max(0.15, 0.75 - airDist * 0.35);
+    }
+
     this.updateCamera(dt);
     this.updateInteraction();
     this.updateTongue(dt);
@@ -1591,8 +1824,11 @@ export class ArcadeRoom3D {
   }
 
   renderFrame() {
-    if (this.composer) this.composer.render();
-    else this.renderer.render(this.scene, this.camera);
+    if (this.quality === "low" || !this.composer) {
+      this.renderer.render(this.scene, this.camera);
+    } else {
+      this.composer.render();
+    }
   }
 
   updateMovement(dt) {
@@ -1617,23 +1853,23 @@ export class ArcadeRoom3D {
     const targetSpeed = (ix || iz) ? maxSpeed : 0;
 
     const yaw = this.cameraYaw;
-    const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
-    const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
-    const desired = new THREE.Vector3()
-      .addScaledVector(forward, iz)
-      .addScaledVector(right, ix);
-    if (desired.lengthSq() > 1e-6) desired.normalize().multiplyScalar(targetSpeed);
+    _v1.set(-Math.sin(yaw), 0, -Math.cos(yaw));
+    _v2.set(Math.cos(yaw), 0, -Math.sin(yaw));
+    _v3.set(0, 0, 0)
+      .addScaledVector(_v1, iz)
+      .addScaledVector(_v2, ix);
+    if (_v3.lengthSq() > 1e-6) _v3.normalize().multiplyScalar(targetSpeed);
 
     // Exponential accel / friction: snappy start, no sliding stop
     const rate = (ix || iz) ? (running ? ACCEL_RUN : ACCEL_WALK) : FRICTION;
-    this.velocity.lerp(desired, 1 - Math.exp(-rate * dt));
+    this.velocity.lerp(_v3, 1 - Math.exp(-rate * dt));
     if (this.velocity.lengthSq() < 1e-4) this.velocity.set(0, 0, 0);
 
     const pos = this.character.position;
     // Horizontal move resolved against the collision world (per-axis, sub-stepped).
     if (this.collision) {
-      const delta = new THREE.Vector3(this.velocity.x * dt, 0, this.velocity.z * dt);
-      this.collision.move(pos, delta, 0.4, this.vertY, this.vertY + (crouch ? 0.8 : 1.2));
+      _deltaMove.set(this.velocity.x * dt, 0, this.velocity.z * dt);
+      this.collision.move(pos, _deltaMove, 0.4, this.vertY, this.vertY + (crouch ? 0.8 : 1.2));
     } else {
       pos.addScaledVector(this.velocity, dt);
     }
@@ -1674,8 +1910,7 @@ export class ArcadeRoom3D {
     const speed = this.velocity.length();
     let turnDelta = 0;
     if (speed > 0.05) {
-      const moveDir = this.velocity.clone().normalize();
-      const targetYaw = Math.atan2(moveDir.x, -moveDir.z);
+      const targetYaw = Math.atan2(this.velocity.x, -this.velocity.z);
       turnDelta = shortestAngle(this.charYaw, targetYaw);
       this.charYaw += turnDelta * Math.min(1, TURN_RATE * dt);
     }
@@ -1776,38 +2011,38 @@ export class ArcadeRoom3D {
     const aim = this.aiming && this.aimTarget;
     const height = this.charHeight * 1.32 + this.cameraPitch * 3.4 + this.vertY * 0.55;
     const yaw = this.cameraYaw;
-    const look = this.character.position.clone().addScaledVector(this.velocity, 0.3);
+    _camLook.copy(this.character.position).addScaledVector(this.velocity, 0.3);
     const headY = this.character.position.y + this.charHeight * 0.82;
-    const origin = new THREE.Vector3(look.x, headY, look.z);
+    _v1.set(_camLook.x, headY, _camLook.z);
     let dist = (aim ? 4.6 : 6.1) + speed * 0.42;
     // Pull the camera in when a wall sits between it and the player.
     if (this.collision) {
-      const probe = new THREE.Vector3(
-        origin.x + Math.sin(yaw) * dist,
+      _v2.set(
+        _v1.x + Math.sin(yaw) * dist,
         height,
-        origin.z + Math.cos(yaw) * dist
+        _v1.z + Math.cos(yaw) * dist
       );
-      dist = Math.min(dist, this.collision.distanceToWall(origin, probe, 0.35));
+      dist = Math.min(dist, this.collision.distanceToWall(_v1, _v2, 0.35));
     }
-    const target = new THREE.Vector3(
-      look.x + Math.sin(yaw) * dist,
+    _camTarget.set(
+      _camLook.x + Math.sin(yaw) * dist,
       height,
-      look.z + Math.cos(yaw) * dist
+      _camLook.z + Math.cos(yaw) * dist
     );
     // Keep the camera inside the room shell so it never sinks into a wall
     const mx = this.bounds.x - 0.7;
     const mz = this.bounds.z - 0.7;
-    target.x = THREE.MathUtils.clamp(target.x, -mx, mx);
-    target.z = THREE.MathUtils.clamp(target.z, -mz, mz);
+    _camTarget.x = THREE.MathUtils.clamp(_camTarget.x, -mx, mx);
+    _camTarget.z = THREE.MathUtils.clamp(_camTarget.z, -mz, mz);
 
     // Critically-damped spring follow
-    this.camera.position.lerp(target, 1 - Math.exp(-7.5 * dt));
+    this.camera.position.lerp(_camTarget, 1 - Math.exp(-7.5 * dt));
     this.camera.position.x = THREE.MathUtils.clamp(this.camera.position.x, -mx, mx);
     this.camera.position.z = THREE.MathUtils.clamp(this.camera.position.z, -mz, mz);
 
-    this._lookAt = this._lookAt || this.character.position.clone();
-    const want = new THREE.Vector3(look.x, this.character.position.y + this.charHeight * 0.82, look.z);
-    this._lookAt.lerp(want, 1 - Math.exp(-9 * dt));
+    if (!this._lookAt) this._lookAt = this.character.position.clone();
+    _camWant.set(_camLook.x, this.character.position.y + this.charHeight * 0.82, _camLook.z);
+    this._lookAt.lerp(_camWant, 1 - Math.exp(-9 * dt));
     this.camera.lookAt(this._lookAt);
 
     // Sprint FOV kick, tightened while aiming
@@ -1834,17 +2069,49 @@ export class ArcadeRoom3D {
     this.aimTarget = best;
 
     if (best && bestDist <= INTERACT_DISTANCE) {
-      if (this.nearest !== best) {
+      const isCompleted = state.isRoundCompleted(best.round);
+      const nextRound = state.getNextAvailableRound();
+      const isNext = best.round === nextRound;
+      const isLocked = best.round > nextRound;
+      const roundScore = state.roundScores[best.round] || 0;
+      const statusKey = `${best.round}-${isCompleted ? 'c' : (isNext ? 'n' : 'l')}`;
+
+      if (this.nearest !== best || this._lastStatusKey !== statusKey) {
         this.nearest = best;
-        if (this.promptRoundEl) this.promptRoundEl.textContent = "ROUND " + best.round + " / 5";
+        this._lastStatusKey = statusKey;
+
+        if (this.promptRoundEl) {
+          if (isCompleted) {
+            this.promptRoundEl.textContent = `ROUND ${best.round} / 5 · [CLEARED]`;
+          } else if (isNext) {
+            this.promptRoundEl.textContent = `ROUND ${best.round} / 5 · [ACTIVE MISSION]`;
+          } else {
+            this.promptRoundEl.textContent = `ROUND ${best.round} / 5 · [LOCKED]`;
+          }
+        }
+
         if (this.promptNameEl) this.promptNameEl.textContent = best.name;
+
+        const promptKeyEl = this.promptEl ? this.promptEl.querySelector(".room3d-prompt-key") : null;
+        if (promptKeyEl) {
+          if (isCompleted) {
+            promptKeyEl.innerHTML = `<span style="color: #10b981; font-weight: 800;">✓ CLEARED · SCORE: ${roundScore} PTS</span> <span style="opacity: 0.7; font-size: 0.8rem; margin-left: 6px;">[CANNOT REPLAY]</span>`;
+          } else if (isNext) {
+            promptKeyEl.innerHTML = `PRESS <b>E</b> TO PLAY`;
+          } else {
+            promptKeyEl.innerHTML = `<span style="color: #ef4444; font-weight: 800;">🔒 LOCKED</span> · CLEAR ROUND ${nextRound} FIRST`;
+          }
+        }
+
         if (this.promptEl) {
-          this.promptEl.style.setProperty("--prompt-color", "#" + new THREE.Color(best.color).getHexString());
+          const colorHex = isCompleted ? "#10b981" : (isLocked ? "#64748b" : "#" + new THREE.Color(best.color).getHexString());
+          this.promptEl.style.setProperty("--prompt-color", colorHex);
           this.promptEl.classList.add("visible");
         }
       }
     } else if (this.nearest) {
       this.nearest = null;
+      this._lastStatusKey = null;
       if (this.promptEl) this.promptEl.classList.remove("visible");
     }
   }
@@ -1866,9 +2133,31 @@ export class ArcadeRoom3D {
     this.cabinetSpots.forEach(spot => {
       const pulse = spot.holder.userData.pulse;
       if (!pulse) return;
+      const isCompleted = state.isRoundCompleted(spot.round);
+      const nextRound = state.getNextAvailableRound();
+      const isNext = spot.round === nextRound;
+      const isLocked = spot.round > nextRound;
+
       const glow = 0.55 + Math.sin(t * 2 + pulse.phase) * 0.2;
-      pulse.ring.material.opacity = spot === this.nearest ? 0.95 : glow * 0.7;
-      pulse.light.intensity = pulse.base * (spot === this.nearest ? 1.6 : glow + 0.4);
+      const activePulse = 0.8 + Math.sin(t * 3.5 + pulse.phase) * 0.4;
+
+      if (isCompleted) {
+        pulse.ring.material.opacity = spot === this.nearest ? 0.95 : 0.45;
+        pulse.light.intensity = pulse.base * (spot === this.nearest ? 1.4 : 0.6);
+        pulse.light.color.setHex(0x10b981);
+        pulse.ring.material.color.setHex(0x10b981);
+      } else if (isNext) {
+        pulse.ring.material.opacity = spot === this.nearest ? 1.0 : activePulse;
+        pulse.light.intensity = pulse.base * (spot === this.nearest ? 2.0 : 1.4 + activePulse * 0.5);
+        pulse.light.color.setHex(spot.color);
+        pulse.ring.material.color.setHex(spot.color);
+      } else {
+        pulse.ring.material.opacity = spot === this.nearest ? 0.6 : 0.25;
+        pulse.light.intensity = pulse.base * (spot === this.nearest ? 0.8 : 0.35);
+        pulse.light.color.setHex(0x334155);
+        pulse.ring.material.color.setHex(0x334155);
+      }
+
       if (redrawScreens && pulse.screen) this.drawAttractScreen(pulse.screen, t);
     });
   }
@@ -1876,6 +2165,20 @@ export class ArcadeRoom3D {
   interact() {
     if (!this.nearest) return false;
     const round = this.nearest.round;
+    const isCompleted = state.isRoundCompleted(round);
+    const nextRound = state.getNextAvailableRound();
+    const roundScore = state.roundScores[round] || 0;
+
+    if (isCompleted) {
+      this.showToast(`Cabinet Cleared! You scored ${roundScore} pts in Round ${round}. Proceed to Round ${nextRound}!`, "warning");
+      return false;
+    }
+
+    if (round > nextRound) {
+      this.showToast(`Cabinet Locked! Clear Round ${nextRound} first to unlock this machine.`, "error");
+      return false;
+    }
+
     if (this.onLaunchRound) this.onLaunchRound(round);
     return true;
   }
@@ -1927,20 +2230,21 @@ export class ArcadeRoom3D {
     const ext = p < 0.45 ? p / 0.45 : 1 - (p - 0.45) / 0.55;
     const len = Math.max(0.02, ext * TONGUE_RANGE);
     const yaw = this.charYaw;
-    const dir = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
-    const origin = this.character.position.clone();
-    origin.y += this.charHeight * 0.62 + this.vertY;
+    _v1.set(-Math.sin(yaw), 0, -Math.cos(yaw));
+    _v2.copy(this.character.position);
+    _v2.y += this.charHeight * 0.62 + this.vertY;
 
     // Raycast hit detection at full extension (once per shot)
     if (!this.tongueHitDone && p >= 0.45) {
       this.tongueHitDone = true;
-      this.tongueHit = this.raycastTongue(origin, dir);
+      this.tongueHit = this.raycastTongue(_v2, _v1);
     }
 
     const g = this.tongueMesh;
     g.visible = true;
-    g.position.copy(origin);
-    g.lookAt(origin.clone().add(dir));
+    g.position.copy(_v2);
+    _v3.copy(_v2).add(_v1);
+    g.lookAt(_v3);
     this.tongueShaft.scale.set(1, 1, len);
     this.tongueShaft.position.z = len / 2;
     this.tongueTip.position.z = len;
@@ -2015,42 +2319,86 @@ export class ArcadeRoom3D {
     this.lockRing.material.color.setHex(s.color);
   }
 
-  /** Reflect sprint stamina and camo state in the on-screen meters. */
+  /** Reflect sprint stamina and camo state in the on-screen meters without touching DOM every frame. */
   updateHudMeters() {
-    if (this.staminaEl) this.staminaEl.style.width = Math.round(this.stamina * 100) + "%";
-    if (this.camoMeterEl) {
-      const camoOn = this.camoTarget < 0.5;
-      const ready = this.tongueCooldown <= 0;
-      this.camoMeterEl.style.width = (camoOn ? 100 : Math.round(this.camo * 100)) + "%";
-      this.camoMeterEl.style.opacity = ready ? "1" : "0.4";
+    const staminaPct = Math.round(this.stamina * 100);
+    if (this._lastStaminaPct !== staminaPct) {
+      this._lastStaminaPct = staminaPct;
+      if (this.staminaEl) this.staminaEl.style.width = staminaPct + "%";
+    }
+    const camoOn = this.camoTarget < 0.5;
+    const camoPct = camoOn ? 100 : Math.round(this.camo * 100);
+    const ready = this.tongueCooldown <= 0;
+    const camoKey = `${camoPct}-${ready}`;
+    if (this._lastCamoKey !== camoKey) {
+      this._lastCamoKey = camoKey;
+      if (this.camoMeterEl) {
+        this.camoMeterEl.style.width = camoPct + "%";
+        this.camoMeterEl.style.opacity = ready ? "1" : "0.4";
+      }
     }
   }
 
   /**
    * Quality tiers trade resolution + post-processing + accent lights for FPS.
-   * LOW is the safety net for weak integrated GPUs on event day.
+   * LOW is the default safety net for integrated GPUs (Intel UHD / i3) on event day.
    */
-  applyQuality(q) {
+  applyQuality(q, isManual = false) {
+    if (isManual) {
+      this.manualQuality = true;
+      localStorage.setItem("arcade_manual_quality", "true");
+    }
     this.quality = q;
     localStorage.setItem("arcade_quality", q);
-    const dpr = window.devicePixelRatio || 1;
+
     if (q === "low") {
+      this.resScale = 0.70;
       this.renderer.setPixelRatio(1);
       if (this.bloomPass) this.bloomPass.enabled = false;
-      if (this.filmPass) this.filmPass.enabled = false;
       (this.accentLights || []).forEach(l => { l.visible = false; });
+      (this.cabinetLights || []).forEach(l => { l.visible = false; });
+      if (this.cornerLights) this.cornerLights.forEach(l => { l.visible = false; });
+      if (this.glossyFloor) this.glossyFloor.visible = false;
+      if (this.scene.fog) { this.scene.fog.near = 10; this.scene.fog.far = 28; }
+      if (this.camera) { this.camera.far = 70; this.camera.updateProjectionMatrix(); }
+      if (this.renderer) {
+        this.renderer.toneMapping = THREE.LinearToneMapping;
+        this.renderer.shadowMap.enabled = false;
+      }
+      this._physFixedHz = 60;
     } else if (q === "high") {
-      this.renderer.setPixelRatio(Math.min(dpr, 2));
+      this.resScale = 1.0;
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+      if (!this.composer) this.initComposer();
       if (this.bloomPass) this.bloomPass.enabled = true;
-      if (this.filmPass) this.filmPass.enabled = true;
       (this.accentLights || []).forEach(l => { l.visible = true; });
+      (this.cabinetLights || []).forEach(l => { l.visible = true; });
+      if (this.cornerLights) this.cornerLights.forEach(l => { l.visible = true; });
+      if (this.glossyFloor) this.glossyFloor.visible = true;
+      if (this.scene.fog) { this.scene.fog.near = 18; this.scene.fog.far = 46; }
+      if (this.camera) { this.camera.far = 200; this.camera.updateProjectionMatrix(); }
+      if (this.renderer) this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this._physFixedHz = 120;
+      if (this.decor) this.decor.loadStatues().catch(() => {});
     } else {
-      this.renderer.setPixelRatio(Math.min(dpr, 1.5));
+      // medium
+      this.resScale = 0.85;
+      this.renderer.setPixelRatio(1);
+      if (!this.composer) this.initComposer();
       if (this.bloomPass) this.bloomPass.enabled = true;
-      if (this.filmPass) this.filmPass.enabled = true;
       (this.accentLights || []).forEach(l => { l.visible = true; });
+      (this.cabinetLights || []).forEach(l => { l.visible = true; });
+      if (this.cornerLights) this.cornerLights.forEach(l => { l.visible = true; });
+      if (this.glossyFloor) this.glossyFloor.visible = true;
+      if (this.scene.fog) { this.scene.fog.near = 18; this.scene.fog.far = 46; }
+      if (this.camera) { this.camera.far = 160; this.camera.updateProjectionMatrix(); }
+      if (this.renderer) this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this._physFixedHz = 60;
+      if (this.decor) this.decor.loadStatues().catch(() => {});
     }
     if (this.decor) this.decor.setQuality(q);
+    const qEl = document.getElementById("room3dQuality");
+    if (qEl && qEl.value !== q) qEl.value = q;
     this.resize();
   }
 

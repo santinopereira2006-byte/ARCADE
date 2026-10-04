@@ -100,6 +100,30 @@ export const SCALE_WARS_CHARACTERS = {
     color: "#38bdf8",
     svg: `<svg viewBox="0 0 160 200" class="holo-svg"><polygon points="68,15 92,15 98,35 62,35" fill="#38bdf8"/><polygon points="25,50 60,40 100,40 135,50 125,80 100,130 60,130 35,80" fill="#38bdf8"/><path d="M 68 130 L 60 205 M 92 130 L 100 205" stroke="#38bdf8" stroke-width="14"/></svg>`
   },
+  shrek: {
+    id: "shrek",
+    name: "Shrek",
+    franchise: "DreamWorks",
+    heightM: 2.3,
+    heightFt: "7'7\"",
+    weightKg: 230,
+    category: "Swamp Ogre",
+    color: "#4ade80",
+    glbSrc: "models/shrek/scene.gltf",
+    svg: `<svg viewBox="0 0 160 200" class="holo-svg"><ellipse cx="80" cy="40" rx="28" ry="28" fill="#4ade80"/><polygon points="60,22 48,4 66,18" fill="#4ade80"/><polygon points="100,22 112,4 94,18" fill="#4ade80"/><ellipse cx="80" cy="40" rx="16" ry="12" fill="#166534" opacity="0.4"/><path d="M 44 72 Q 80 58 116 72 L 106 140 L 54 140 Z" fill="#4ade80" opacity="0.9"/><path d="M 66 140 L 58 196 M 94 140 L 102 196" stroke="#4ade80" stroke-width="13"/></svg>`
+  },
+  thanos: {
+    id: "thanos",
+    name: "Thanos",
+    franchise: "Marvel",
+    heightM: 2.5,
+    heightFt: "8'3\"",
+    weightKg: 446,
+    category: "Eternal Titan",
+    color: "#a855f7",
+    glbSrc: "models/thanos/scene.gltf",
+    svg: `<svg viewBox="0 0 160 200" class="holo-svg"><ellipse cx="80" cy="35" rx="22" ry="22" fill="#a855f7"/><polygon points="20,55 62,48 98,48 140,55 128,115 32,115" fill="#a855f7" opacity="0.95"/><path d="M 32,55 L 15,75 L 8,100 M 128,55 L 145,75 L 152,100" stroke="#a855f7" stroke-width="12"/><rect x="58" y="28" width="10" height="6" fill="#fbbf24" rx="2"/><rect x="74" y="28" width="10" height="6" fill="#fbbf24" rx="2"/><rect x="90" y="28" width="10" height="6" fill="#fbbf24" rx="2"/><path d="M 56 115 L 48 195 M 104 115 L 112 195" stroke="#a855f7" stroke-width="13"/></svg>`
+  },
   colossal_titan: {
     id: "colossal_titan",
     name: "Colossal Titan",
@@ -214,21 +238,27 @@ export const ROUND1_SCALE_QUESTIONS = [
   {
     id: "r1-q4",
     round: 1,
-    type: "estimation",
-    question: "ESTIMATE THE HEIGHT OF THE COLOSSAL TITAN",
-    character: "colossal_titan",
-    correctNumber: 60.0,
+    type: "size_it_up",
+    question: "HOW BIG IS THANOS?",
+    subPrompt: "Guess: Thanos · The Mad Titan · Height | Reference: Shrek · 2.30 m",
+    character: "thanos",
+    referenceItem: "shrek",
+    referenceLabel: "Shrek 2.30 m · 7'7\" tall",
+    referenceLengthM: 2.30,
+    correctNumber: 2.50,
     unit: "metres",
+    minM: 0.5,
+    maxM: 5.0,
+    initialM: 1.60,
     tolerance: [
-      { maxDiff: 3.0, points: 20, label: "PINPOINT ACCURACY" },
-      { maxDiff: 8.0, points: 15, label: "EXCELLENT ESTIMATE" },
-      { maxDiff: 15.0, points: 10, label: "CLOSE CALL" },
-      { maxDiff: 25.0, points: 5, label: "ROUGH ESTIMATE" }
+      { maxDiff: 0.15, points: 20, label: "🎯 PINPOINT ACCURACY" },
+      { maxDiff: 0.40, points: 15, label: "⚡ EXCELLENT ESTIMATE" },
+      { maxDiff: 0.80, points: 10, label: "👍 CLOSE ESTIMATE" },
+      { maxDiff: 1.40, points: 5, label: "🔍 ROUGH ESTIMATE" }
     ],
-    timeLimit: 20,
+    timeLimit: 30,
     points: 20,
-    referenceScale: { human: 1.8, car: 4.5, building: 30, target: 60.0 },
-    explanation: "The Colossal Titan stands at exactly 60.0 metres (197 ft), towering 10 metres above the 50-metre Wall Maria."
+    explanation: "Thanos stands at 2.50 m (8'3\" / 8.20 ft) in battle armor — towering slightly over Shrek who stands at 2.30 m (7'7\" / 7.55 ft)!"
   },
   {
     id: "r1-q5",
@@ -239,10 +269,10 @@ export const ROUND1_SCALE_QUESTIONS = [
     correctNumber: 119.8,
     unit: "metres",
     tolerance: [
-      { maxDiff: 5.0, points: 20, label: "PINPOINT ACCURACY" },
-      { maxDiff: 15.0, points: 15, label: "EXCELLENT ESTIMATE" },
-      { maxDiff: 30.0, points: 10, label: "CLOSE CALL" },
-      { maxDiff: 50.0, points: 5, label: "ROUGH ESTIMATE" }
+      { maxDiff: 5.0, points: 20, label: "🎯 PINPOINT ACCURACY" },
+      { maxDiff: 15.0, points: 15, label: "⚡ EXCELLENT ESTIMATE" },
+      { maxDiff: 30.0, points: 10, label: "👍 CLOSE ESTIMATE" },
+      { maxDiff: 50.0, points: 5, label: "🔍 ROUGH ESTIMATE" }
     ],
     timeLimit: 20,
     points: 20,

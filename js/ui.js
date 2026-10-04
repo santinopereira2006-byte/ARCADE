@@ -71,13 +71,15 @@ export class ArcadeUIController {
       teamEl.textContent = `TEAM: ${teamName.toUpperCase()}`;
     }
 
-    if (AuthManager.isParticipantAuthenticated()) {
-      if (scoreEl) scoreEl.textContent = "SCORE: —";
-      if (maxScoreEl) maxScoreEl.textContent = "RESULTS HIDDEN";
-      return;
-    }
-
     this.animateScore(this.state.totalScore);
+  }
+
+  updateScore(score = this.state.totalScore, maxScore = this.state.highestPossibleScore) {
+    const scoreEl = document.getElementById("hudScore");
+    if (scoreEl) scoreEl.textContent = `SCORE: ${String(score).padStart(3, "0")}`;
+    const maxScoreEl = document.getElementById("hudMaxScore");
+    if (maxScoreEl) maxScoreEl.textContent = `MAX: ${maxScore}`;
+    this.animateScore(score);
   }
 
   animateScore(targetScore) {
@@ -151,41 +153,35 @@ export class ArcadeUIController {
     }
 
     existingReveal.style.display = "block";
-    const participantView = AuthManager.isParticipantAuthenticated();
 
     let badgeClass = "incorrect-badge";
-    let title = "INCORRECT — 0 POINTS";
+    let title = headline || "INCORRECT — 0 POINTS";
 
     if (resultType === "correct") {
       badgeClass = "correct-badge";
-      title = `CORRECT! +${pointsEarned} POINTS`;
+      if (!headline) title = `CORRECT! +${pointsEarned} POINTS`;
     } else if (resultType === "partial") {
       badgeClass = "partial-badge";
-      title = `PARTIAL +${pointsEarned} POINTS`;
+      if (!headline) title = `PARTIAL ESTIMATE · +${pointsEarned} POINTS`;
     } else if (resultType === "passed") {
       badgeClass = "passed-badge";
-      title = "QUESTION PASSED — 0 POINTS";
+      if (!headline) title = "QUESTION PASSED — 0 POINTS";
     } else if (resultType === "timeout") {
       badgeClass = "timeout-badge";
-      title = "TIME EXPIRED — 0 POINTS";
+      if (!headline) title = "TIME EXPIRED — 0 POINTS";
     }
 
-    if (participantView) {
-      title = resultType === "correct"
-        ? "CORRECT — RESPONSE RECORDED"
-        : resultType === "partial"
-          ? "PARTIAL — RESPONSE RECORDED"
-          : resultType === "passed"
-            ? "QUESTION PASSED"
-            : resultType === "timeout"
-              ? "TIME EXPIRED"
-              : "RESPONSE LOCKED";
-    }
+    const currentTotal = this.state ? this.state.totalScore : 0;
 
     existingReveal.innerHTML = `
       <div class="result-badge ${badgeClass}">
         <div class="badge-lock-tag">ANSWER LOCKED</div>
         <div class="badge-headline">${title}</div>
+        <div class="badge-score-pill">
+          <span class="score-pill-q">THIS QUESTION: <strong>+${pointsEarned} PTS</strong></span>
+          <span class="score-pill-dot">·</span>
+          <span class="score-pill-total">TOTAL: <strong>${currentTotal} PTS</strong></span>
+        </div>
       </div>
 
       <div class="reveal-details-box">
@@ -257,8 +253,8 @@ export class ArcadeUIController {
         rules: [
           "Type the target code as accurately as you can; scoring is character-by-character and line-by-line.",
           "Level 1 stays fully visible. Later levels hide the code behind timed blackout shutters.",
-          "Level 5 is a memory sprint: 10s to memorize, then 10s to reproduce (auto-submits).",
-          "One shared 8-minute timer runs across all 5 levels. Tab inserts 4 spaces; Ctrl+Enter submits; copy/paste is disabled."
+          "Level 5 is a memory sprint: 10s to memorize, then 20s to reproduce (auto-submits).",
+          "One shared 8-minute timer runs across all 5 levels. Tab inserts 2 spaces; Ctrl+Enter submits; copy/paste is disabled."
         ],
         tip: "Accuracy beats speed — a shorter but exact match scores higher than a long, messy one."
       },
@@ -321,9 +317,22 @@ export class ArcadeUIController {
       </div>
     `;
 
-    document.getElementById("btnStartRound")?.addEventListener("click", () => {
-      if (onStartRound) onStartRound();
-    });
+    const startBtn = document.getElementById("btnStartRound");
+    if (startBtn) {
+      const launch = () => {
+        startBtn.disabled = true;
+        if (onStartRound) onStartRound();
+      };
+      startBtn.addEventListener("click", launch);
+      startBtn.focus();
+      const onKey = (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          window.removeEventListener("keydown", onKey);
+          launch();
+        }
+      };
+      window.addEventListener("keydown", onKey, { once: true });
+    }
   }
 
   showPracticeReveal({ headline, correct, explanation, onNext, nextLabel }) {
@@ -420,8 +429,11 @@ export class ArcadeUIController {
 
         <div class="between-actions">
           <button type="button" class="btn-primary-gaming" id="btnProceedNextRound">
-            PROCEED TO ROUND ${roundNumber + 1}${nextRoundName} →
+            RETURN TO 3D ARCADE FLOOR ▶ [UNLOCK CABINET ${roundNumber + 1}${nextRoundName}]
           </button>
+          <p class="between-sub" style="margin-top: 12px; font-size: 0.9rem; color: #94a3b8; letter-spacing: 0.5px;">
+            ✓ Points saved to tournament progress! Walk to Cabinet ${roundNumber + 1} to begin the next game.
+          </p>
         </div>
       </div>
     `;
@@ -434,7 +446,7 @@ export class ArcadeUIController {
     }
   }
 
-  renderFinalResults(onPlayAgain, onReturnHome) {
+  renderFinalResults(onPlayAgain, onReturnHome, onExploreRoom3d = null) {
     const screen = document.getElementById("screen-results");
     if (!screen) return;
 
@@ -567,6 +579,11 @@ export class ArcadeUIController {
           <button type="button" class="btn-primary-gaming" id="btnPlayAgain">
             🔄 NEXT MATCH / PLAY AGAIN
           </button>
+          ${onExploreRoom3d ? `
+          <button type="button" class="btn-secondary-gaming" id="btnResultsRoom3d">
+            🕹️ EXPLORE 3D ARCADE
+          </button>
+          ` : ''}
           ${AuthManager.isAdminAuthenticated() ? `
           <button type="button" class="btn-secondary-gaming" id="btnResultsViewLeaderboard">
             🏆 VIEW LEADERBOARD
@@ -606,12 +623,14 @@ export class ArcadeUIController {
 
     const playAgainBtn = document.getElementById("btnPlayAgain");
     const returnHomeBtn = document.getElementById("btnReturnHome");
+    const room3dBtn = document.getElementById("btnResultsRoom3d");
     const presBtn = document.getElementById("btnResultsPresMode");
     const viewLbBtn = document.getElementById("btnResultsViewLeaderboard");
     const saveLbBtn = document.getElementById("btnSaveToLeaderboard");
 
     if (playAgainBtn) playAgainBtn.addEventListener("click", onPlayAgain);
     if (returnHomeBtn) returnHomeBtn.addEventListener("click", onReturnHome);
+    if (room3dBtn && onExploreRoom3d) room3dBtn.addEventListener("click", onExploreRoom3d);
     if (presBtn) presBtn.addEventListener("click", () => this.togglePresentationMode());
     if (viewLbBtn) viewLbBtn.addEventListener("click", () => this.renderLeaderboardScreen(onPlayAgain, onReturnHome));
 

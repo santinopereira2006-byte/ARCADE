@@ -832,8 +832,19 @@ body {
 .hud-right {
   display: flex;
   justify-content: flex-end;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  gap: 14px;
+}
+
+.hud-score-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 221, 68, 0.25);
+  padding: 4px 12px;
+  border-radius: 6px;
 }
 
 .hud-score-badge {
@@ -843,14 +854,16 @@ body {
   letter-spacing: 1.5px;
   color: var(--neon-yellow);
   text-shadow: 0 0 12px var(--neon-amber-glow);
+  line-height: 1.2;
 }
 
 .hud-max-badge {
   font-family: var(--font-tech);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 1px;
   color: var(--text-dim);
+  line-height: 1.2;
 }
 
 /* Countdown Timer Card */
@@ -1042,6 +1055,26 @@ body {
   border-radius: 8px;
 }
 
+/* Persistent hidden pool for preloading & pre-rendering Scale Wars 3D models */
+.scale-wars-model-pool {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 260px;
+  height: 220px;
+  opacity: 0.001;
+  pointer-events: none;
+  z-index: -99999;
+  overflow: hidden;
+  contain: strict;
+}
+
+.scale-wars-model-pool model-viewer {
+  width: 260px;
+  height: 220px;
+  pointer-events: none;
+}
+
 .mv-slot {
   width: 100%;
   height: 220px;
@@ -1199,9 +1232,10 @@ body {
   background: rgba(8, 14, 26, 0.85);
   border: 1px solid var(--border-dim);
   border-radius: 10px;
-  padding: 16px 20px;
+  padding: 16px 20px 46px;
   margin: 16px 0;
-  overflow: hidden;
+  /* overflow must NOT be hidden — labels sit below the stage baseline */
+  overflow: visible;
 }
 
 .reference-scale-header {
@@ -1227,20 +1261,20 @@ body {
 }
 
 .reference-scale-stage {
-  height: 140px;
-  max-height: 140px;
+  min-height: 160px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   border-bottom: 2px solid var(--neon-cyan);
-  padding-bottom: 28px;
+  padding-bottom: 12px;
+  margin-bottom: 56px;
   align-items: flex-end;
+  position: relative;
 }
 
 .scale-col {
   position: relative;
-  height: 140px;
-  max-height: 140px;
+  height: 160px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -1249,7 +1283,7 @@ body {
 
 .scale-box {
   width: 100%;
-  max-height: 100%;
+  height: 100%;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1259,17 +1293,53 @@ body {
 .ref-svg {
   width: 100%;
   height: 100%;
-  max-height: 120px;
+  max-height: 140px;
 }
 
 .scale-base {
   position: absolute;
-  bottom: -24px;
+  top: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   font-family: var(--font-tech);
   font-size: 11px;
+  text-align: center;
+  width: max-content;
+  max-width: 160px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.scale-base span {
+  font-family: var(--font-tech);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.scale-base strong {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--neon-cyan);
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.45);
+  line-height: 1.3;
+  margin-top: 3px;
+  white-space: nowrap;
+}
+
+.scale-base.target-base strong {
+  color: var(--neon-amber);
+  text-shadow: 0 0 10px rgba(255, 170, 0, 0.6);
+  font-size: 15px;
 }
 
 .mystery-tag {
@@ -2082,6 +2152,12 @@ body {
   color: var(--neon-green);
 }
 
+.partial-badge {
+  background: rgba(255, 170, 0, 0.14);
+  border: 1px solid var(--neon-amber);
+  color: var(--neon-amber);
+}
+
 .incorrect-badge,
 .timeout-badge {
   background: rgba(255, 42, 85, 0.12);
@@ -2093,6 +2169,44 @@ body {
   background: rgba(148, 163, 184, 0.12);
   border: 1px solid var(--text-dim);
   color: var(--text-muted);
+}
+
+.badge-score-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 6px 18px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 20px;
+  font-family: var(--font-tech);
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.score-pill-q {
+  color: #ffffff;
+}
+
+.score-pill-q strong {
+  color: var(--neon-yellow);
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.score-pill-dot {
+  color: var(--text-dim);
+}
+
+.score-pill-total {
+  color: var(--text-muted);
+}
+
+.score-pill-total strong {
+  color: var(--neon-cyan);
+  font-weight: 800;
+  font-size: 15px;
 }
 
 .reveal-details-box {
@@ -3918,7 +4032,10 @@ body.participant-authenticated .csi-event-footer {
   text-shadow: none !important;
 }
 
-body.participant-authenticated .hud-score-box,
+body.participant-authenticated .hud-score-box {
+  display: flex !important;
+}
+
 body.participant-authenticated .between-scores-grid,
 body.participant-authenticated .between-stats-container,
 body.participant-authenticated .tier-banner,
@@ -4203,7 +4320,7 @@ body.participant-mode .mv-slot {
 .size-it-up-stage.dark-cyber-stage {
   position: relative;
   width: 100%;
-  height: 400px;
+  height: 360px;
   background: radial-gradient(circle at 50% 30%, #0d1527 0%, #060912 100%);
   border-radius: 8px;
   border: 2px solid rgba(0, 240, 255, 0.35);
@@ -4481,7 +4598,7 @@ body.participant-mode .mv-slot {
 .dark-cyber-ruler .ruler-track-container {
   flex: 1;
   position: relative;
-  height: 46px;
+  height: 48px;
   cursor: pointer;
 }
 
@@ -4505,11 +4622,11 @@ body.participant-mode .mv-slot {
 .dark-cyber-ruler .ruler-tick {
   width: 1px;
   height: 8px;
-  background: rgba(0, 240, 255, 0.3);
+  background: rgba(0, 240, 255, 0.35);
 }
 
 .dark-cyber-ruler .ruler-tick.major {
-  height: 16px;
+  height: 14px;
   background: var(--neon-cyan);
   width: 2px;
   box-shadow: 0 0 6px var(--neon-cyan);
@@ -4520,9 +4637,10 @@ body.participant-mode .mv-slot {
   font-size: 11px;
   font-weight: 700;
   color: var(--neon-cyan);
-  margin-top: 4px;
+  margin-top: 3px;
   white-space: nowrap;
   text-shadow: 0 0 6px rgba(0, 240, 255, 0.5);
+  line-height: 1.1;
 }
 
 /* Red / Crimson Cyber Slider Cursor */

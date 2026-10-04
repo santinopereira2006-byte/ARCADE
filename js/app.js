@@ -68,6 +68,8 @@ class ArcadeApp {
     this.initGradientText();
     this.initSpotlightCards();
     this.initCursor();
+    // Preload & pre-render all Scale Wars 3D models early in background
+    ScaleWarsRenderer.preloadAllModels();
   }
 
   initAntigravity() {
@@ -190,6 +192,9 @@ class ArcadeApp {
 
         AuthManager.authenticateParticipant(team);
         AuthManager.applyRoleVisibility();
+        // Clear any stale progress from a previous session before setting the new team
+        state.clearProgress();
+        state.reset();
         state.setTeam(team);
         if (errorEl) errorEl.textContent = "";
 
@@ -703,7 +708,9 @@ class ArcadeApp {
     const step = steps[idx];
 
     if (step.kind === "scale") {
+      ScaleWarsRenderer.reclaimModelViewers();
       arena.innerHTML = ScaleWarsRenderer.renderQuestion(step.q, () => { }, () => { }, () => { });
+      ScaleWarsRenderer.mountModelViewers();
       this.bindPracticeScale(step.q);
     } else {
       arena.innerHTML = BlackoutBuildRenderer.renderLevel(0, "visibility", "");
@@ -776,8 +783,8 @@ class ArcadeApp {
           e.preventDefault();
           const start = editor.selectionStart;
           const end = editor.selectionEnd;
-          editor.value = editor.value.substring(0, start) + "    " + editor.value.substring(end);
-          editor.selectionStart = editor.selectionEnd = start + 4;
+          editor.value = editor.value.substring(0, start) + "  " + editor.value.substring(end);
+          editor.selectionStart = editor.selectionEnd = start + 2;
           updateGutter();
         } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
           e.preventDefault();
@@ -868,8 +875,8 @@ class ArcadeApp {
         department: "Live Simulation",
         members: "Cadet"
       });
-      this.ui.scoreDisplayValue = 0;
     }
+    this.ui.scoreDisplayValue = state.totalScore;
     document.body.classList.remove("room3d-mode");
     this.ui.showScreen("screen-game");
     this.loadRound(roundNumber);
@@ -883,6 +890,9 @@ class ArcadeApp {
     const playerName = state.activeTeam?.name || "CHALLENGER";
     const playerNameEl = document.getElementById("room3dPlayerName");
     if (playerNameEl) playerNameEl.textContent = playerName.toUpperCase();
+
+    const totalScoreEl = document.getElementById("room3dTotalScore");
+    if (totalScoreEl) totalScoreEl.textContent = String(state.totalScore).padStart(3, "0");
 
     if (this.room3d && this.room3d.ready) {
       this.room3d.enter();
@@ -930,6 +940,9 @@ class ArcadeApp {
     this.practice = { active: false, step: 0 };
     this.ui.setRoundBackground(roundNumber);
     this.ui.showScreen("screen-game");
+    if (roundNumber === 1) {
+      ScaleWarsRenderer.preloadAllModels();
+    }
     // Show a short "how to play" briefing for this round before it begins.
     this.ui.renderRoundBriefing(roundNumber, () => this.startRound(roundNumber));
   }
@@ -944,8 +957,15 @@ class ArcadeApp {
     state.currentRound = roundNumber;
     state.currentQuestionIndex = 0;
     state.isAnswerLocked = false;
+    this.ui.scoreDisplayValue = state.totalScore;
+    if (typeof this.ui.updateScore === "function") {
+      this.ui.updateScore(state.totalScore, state.highestPossibleScore);
+    } else if (typeof this.ui.updateHUD === "function") {
+      this.ui.updateHUD(1, 5);
+    }
 
     if (roundNumber === 1) {
+      ScaleWarsRenderer.preloadAllModels();
       this.loadRound1Question();
     } else if (roundNumber === 2) {
       this.loadRound2Question();
@@ -1021,6 +1041,8 @@ class ArcadeApp {
     state.isAnswerLocked = false;
     this.ui.updateHUD(state.currentQuestionIndex + 1, questions.length);
 
+    ScaleWarsRenderer.reclaimModelViewers();
+
     const arena = document.getElementById("gameArena");
     arena.innerHTML = ScaleWarsRenderer.renderQuestion(
       q,
@@ -1028,6 +1050,8 @@ class ArcadeApp {
       (est) => this.handleRound1Estimate(est),
       () => this.handlePass()
     );
+
+    ScaleWarsRenderer.mountModelViewers();
 
     this.bindArenaActions();
   }
@@ -1074,11 +1098,15 @@ class ArcadeApp {
     state.recordResult(pts > 0 ? "correct" : "incorrect", pts, 1);
     this.ui.updateHUD(state.currentQuestionIndex + 1, ROUND1_SCALE_QUESTIONS.length);
 
+    const resultType = pts >= 20 ? "correct" : (pts > 0 ? "partial" : "incorrect");
+    const headline = pts > 0 ? `${label} · +${pts} PTS` : "OFF TARGET · 0 PTS";
+
     this.ui.showAnswerReveal({
       isCorrect: pts > 0,
       pointsEarned: pts,
-      resultType: pts > 0 ? "correct" : "incorrect",
-      explanation: `${label}! Actual canonical height is ${q.correctNumber}m (Your guess: ${userEstimate}m, error: ±${diff.toFixed(1)}m). ${q.explanation}`,
+      resultType,
+      headline,
+      explanation: `${label}! Actual canonical size is ${q.correctNumber}m (Your estimate: ${userEstimate.toFixed(2)}m · Error margin: ±${diff.toFixed(2)}m). ${q.explanation}`,
       onNext: () => this.nextQuestion()
     });
   }
@@ -1501,13 +1529,13 @@ class ArcadeApp {
         }
       }, 1000);
     } else if (levelData.level === 5) {
-      // ROUND 5: Final Memory Challenge (10s Memorize -> 10s Reproduce)
+      // ROUND 5: Final Memory Challenge (10s Memorize -> 20s Reproduce)
       let phase = "memorize";
       let secondsLeft = levelData.visibleSeconds || 10; // 10s
 
       if (editor) {
         editor.disabled = true;
-        editor.placeholder = "// MEMORIZE THE CODE ABOVE... (TYPING UNLOCKS IN 10s)";
+        editor.placeholder = `// MEMORIZE THE CODE ABOVE... (TYPING UNLOCKS IN ${secondsLeft}s)`;
       }
       if (shutter) shutter.classList.remove("active");
       if (targetStatusTag) {
@@ -1527,14 +1555,14 @@ class ArcadeApp {
               liveShutterStatus.textContent = `🧠 PHASE 1: MEMORIZE (${secondsLeft}s)`;
             }
           } else {
-            // Phase 1 Ends -> Transition to Phase 2: 10s Reproduction Sprint
+            // Phase 1 Ends -> Transition to Phase 2: Reproduction Sprint
             phase = "reproduce";
-            secondsLeft = levelData.reproduceSeconds || 10; // 10s
+            secondsLeft = levelData.reproduceSeconds || 20; // 20s
             state.round4Phase = "blackout";
 
             if (shutter) shutter.classList.add("active");
             if (shutterSubMessage) {
-              shutterSubMessage.textContent = "10s MEMORIZATION ENDED. TYPE FROM MEMORY NOW!";
+              shutterSubMessage.textContent = `${levelData.visibleSeconds || 10}s MEMORIZATION ENDED. TYPE FROM MEMORY NOW!`;
             }
             if (targetStatusTag) {
               targetStatusTag.className = "editor-status-tag tag-blackout";
@@ -1561,7 +1589,7 @@ class ArcadeApp {
               liveShutterStatus.textContent = `⚠️ PHASE 2: REPRODUCE (${secondsLeft}s)`;
             }
           } else {
-            // 10s Reproduction sprint expired -> Auto Submit!
+            // Reproduction sprint expired -> Auto Submit!
             clearInterval(this.round4ShutterInterval);
             this.round4ShutterInterval = null;
             if (liveShutterStatus) {
@@ -1583,13 +1611,13 @@ class ArcadeApp {
         }
       });
 
-      // Enable Tab key support inside code editor (4 spaces) & Ctrl+Enter to submit
+      // Enable Tab key support inside code editor (2 spaces) & Ctrl+Enter to submit
       editor.addEventListener("keydown", (e) => {
         if (e.key === "Tab") {
           e.preventDefault();
           const start = editor.selectionStart;
           const end = editor.selectionEnd;
-          const indent = "    ";
+          const indent = "  ";
           editor.value = editor.value.substring(0, start) + indent + editor.value.substring(end);
           editor.selectionStart = editor.selectionEnd = start + indent.length;
           state.round4TypedCode = editor.value;
@@ -1828,14 +1856,56 @@ class ArcadeApp {
 
   completeRound(roundNumber) {
     this.timer.stop();
+    if (roundNumber === 1) {
+      ScaleWarsRenderer.reclaimModelViewers();
+    }
     if (this.retroBlast && roundNumber !== 5) {
       this.retroBlast.destroy();
       this.retroBlast = null;
     }
+
+    // Persist completed round and score
+    state.markRoundCompleted(roundNumber);
+    if (state.activeTeam?.id) {
+      // Update roster status and leaderboard entry
+      LeaderboardManager.updateTeamStatus(state.activeTeam.id, "in-progress", {
+        score: state.totalScore,
+        roundScores: state.roundScores
+      });
+      const tier = state.getPerformanceTier();
+      LeaderboardManager.addEntry({
+        id: state.activeTeam.id,
+        name: state.activeTeam.name,
+        department: state.activeTeam.department || "Arcade Arena",
+        score: state.totalScore,
+        maxScore: state.highestPossibleScore,
+        tier: tier.tier,
+        tierTitle: tier.title,
+        badgeClass: tier.badgeClass,
+        roundScores: { ...state.roundScores },
+        accuracy: state.getAccuracy(),
+        date: new Date().toISOString().slice(0, 10),
+        time: new Date().toTimeString().slice(0, 5)
+      });
+    }
+
     if (roundNumber < 5) {
-      this.ui.renderBetweenRound(roundNumber, () => {
-        this.loadRound(roundNumber + 1);
-        this.ui.showScreen("screen-game");
+      const nextRound = roundNumber + 1;
+      this.ui.renderBetweenRound(roundNumber, async () => {
+        // Return player back to the 3D Arcade Room!
+        await this.enterArcadeRoom();
+        if (this.room3d) {
+          this.room3d.setReturnPosition(roundNumber);
+          const roundNames = {
+            1: "SCALE WARS",
+            2: "CTRL+ALT+GUESS",
+            3: "TECH MEME BATTLE",
+            4: "BLACKOUT BUILD",
+            5: "RETRO BLAST"
+          };
+          const pts = state.roundScores[roundNumber] || 0;
+          this.room3d.showToast(`★ ROUND ${roundNumber} CLEARED (+${pts} PTS)! WALK TO CABINET ${nextRound} (${roundNames[nextRound]}) ★`, "success");
+        }
       });
     } else {
       if (this.retroBlast) {
@@ -1848,11 +1918,47 @@ class ArcadeApp {
 
   showFinalResults() {
     this.timer.stop();
+
+    // Finalize leaderboard entry — mark team as completed with full score
+    if (state.activeTeam?.id) {
+      LeaderboardManager.updateTeamStatus(state.activeTeam.id, "completed", {
+        score: state.totalScore,
+        roundScores: state.roundScores
+      });
+      const tier = state.getPerformanceTier();
+      LeaderboardManager.addEntry({
+        id: state.activeTeam.id,
+        name: state.activeTeam.name,
+        department: state.activeTeam.department || "Arcade Arena",
+        score: state.totalScore,
+        maxScore: state.highestPossibleScore,
+        tier: tier.tier,
+        tierTitle: tier.title,
+        badgeClass: tier.badgeClass,
+        roundScores: { ...state.roundScores },
+        accuracy: state.getAccuracy(),
+        date: new Date().toISOString().slice(0, 10),
+        time: new Date().toTimeString().slice(0, 5)
+      });
+    }
+
     this.ui.renderFinalResults(
-      () => this.startGame(),
       () => {
+        state.clearProgress();
+        state.reset();
+        this.startGame();
+      },
+      () => {
+        state.clearProgress();
         state.reset();
         this.ui.showScreen("screen-home");
+      },
+      () => {
+        // Option to explore 3D room after tournament
+        this.enterArcadeRoom();
+        if (this.room3d) {
+          this.room3d.showToast("★ TOURNAMENT COMPLETED! ALL 5 CABINETS CLEARED ★", "success");
+        }
       }
     );
   }

@@ -51,7 +51,9 @@ try {
             $path = "/index.html"
         }
 
-        $filePath = Join-Path $folder $path.TrimStart('/')
+        $cleanPath = [System.Uri]::UnescapeDataString($path).TrimStart('/')
+        $cleanPath = $cleanPath.Replace('/', [System.IO.Path]::DirectorySeparatorChar)
+        $filePath = Join-Path $folder $cleanPath
 
         if (Test-Path $filePath -PathType Leaf) {
             $ext = [System.IO.Path]::GetExtension($filePath).ToLower()
@@ -79,6 +81,11 @@ try {
             $response.ContentLength64 = $bytes.Length
             $response.AddHeader("Access-Control-Allow-Origin", "*")
             $response.AddHeader("Cross-Origin-Resource-Policy", "cross-origin")
+            if ($ext -match "\.(glb|gltf|bin|png|jpg|jpeg|webp|woff2)$") {
+                $response.AddHeader("Cache-Control", "public, max-age=86400")
+            } else {
+                $response.AddHeader("Cache-Control", "no-cache")
+            }
             $response.OutputStream.Write($bytes, 0, $bytes.Length)
         } else {
             $response.StatusCode = 404

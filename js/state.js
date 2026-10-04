@@ -6,6 +6,7 @@
 export class ArcadeState {
   constructor() {
     this.reset();
+    this.loadProgress();
   }
 
   reset() {
@@ -16,6 +17,8 @@ export class ArcadeState {
     this.totalScore = 0;
     this.highestPossibleScore = 650;
     this.isAnswerLocked = false;
+
+    this.completedRounds = new Set(); // Set of round numbers (1..5) completed
 
     this.roundScores = {
       1: 0, // Scale Wars (max 100)
@@ -69,6 +72,72 @@ export class ArcadeState {
     };
   }
 
+  markRoundCompleted(round, score = null) {
+    const r = Number(round);
+    if (!this.completedRounds) this.completedRounds = new Set();
+    this.completedRounds.add(r);
+    if (score !== null && score !== undefined) {
+      this.roundScores[r] = Math.max(0, score);
+    }
+    this.saveProgress();
+  }
+
+  isRoundCompleted(round) {
+    if (!this.completedRounds) return false;
+    return this.completedRounds.has(Number(round));
+  }
+
+  getNextAvailableRound() {
+    for (let r = 1; r <= 5; r++) {
+      if (!this.isRoundCompleted(r)) return r;
+    }
+    return 6; // All rounds completed
+  }
+
+  saveProgress() {
+    try {
+      const data = {
+        totalScore: this.totalScore,
+        roundScores: this.roundScores,
+        completedRounds: Array.from(this.completedRounds || []),
+        activeTeam: this.activeTeam,
+        stats: this.stats,
+        currentRound: this.currentRound,
+        timestamp: Date.now()
+      };
+      localStorage.setItem("arcade_tournament_progress", JSON.stringify(data));
+    } catch (e) {
+      console.warn("Could not save arcade tournament progress:", e);
+    }
+  }
+
+  loadProgress() {
+    try {
+      const raw = localStorage.getItem("arcade_tournament_progress");
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (data && typeof data === "object") {
+        if (typeof data.totalScore === "number") this.totalScore = data.totalScore;
+        if (data.roundScores) this.roundScores = { ...this.roundScores, ...data.roundScores };
+        if (Array.isArray(data.completedRounds)) {
+          this.completedRounds = new Set(data.completedRounds.map(Number));
+        }
+        if (data.activeTeam && data.activeTeam.id) this.activeTeam = data.activeTeam;
+        if (data.stats) this.stats = data.stats;
+        return true;
+      }
+    } catch (e) {
+      console.warn("Could not restore arcade tournament progress:", e);
+    }
+    return false;
+  }
+
+  clearProgress() {
+    try {
+      localStorage.removeItem("arcade_tournament_progress");
+    } catch (e) {}
+  }
+
   setTeam(teamData) {
     this.activeTeam = {
       id: teamData.id || "team-" + Date.now(),
@@ -77,12 +146,14 @@ export class ArcadeState {
       department: teamData.department || "General Engineering",
       isGuest: Boolean(teamData.isGuest)
     };
+    this.saveProgress();
   }
 
   addPoints(points, round = this.currentRound) {
     const pts = Math.max(0, points);
     this.totalScore += pts;
     this.roundScores[round] = (this.roundScores[round] || 0) + pts;
+    this.saveProgress();
   }
 
   recordResult(type, pointsAwarded = 0, round = this.currentRound) {
@@ -100,6 +171,7 @@ export class ArcadeState {
       this.stats.totalPassed++;
       if (this.stats.roundStats[round]) this.stats.roundStats[round].passed++;
     }
+    this.saveProgress();
   }
 
   getAccuracy() {

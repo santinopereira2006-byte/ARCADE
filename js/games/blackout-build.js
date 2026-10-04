@@ -146,7 +146,7 @@ export class BlackoutBuildRenderer {
         <!-- Action Control Bar -->
         <div class="blackout-action-bar">
           <div class="action-hints">
-            <span class="hint-text">💡 <b>Tab</b> inserts 4 spaces. Copy/paste is disabled. Click Submit when ready.</span>
+            <span class="hint-text">💡 <b>Tab</b> inserts 2 spaces. Copy/paste is disabled. Click Submit when ready.</span>
           </div>
           <div class="action-buttons">
             <button type="button" class="btn-ide-action" id="btnResetCode">
@@ -166,8 +166,9 @@ export class BlackoutBuildRenderer {
    */
   static evaluateTyping(targetCode, typedCode, maxPoints) {
     const normalize = (str) => str.replace(/\r\n/g, "\n").trim();
-    const cleanTarget = normalize(targetCode);
-    const cleanTyped = normalize(typedCode);
+    // Normalize indentations (4 spaces -> 2 spaces) so tab width differences don't penalize students
+    const cleanTarget = normalize(targetCode).replace(/    /g, "  ");
+    const cleanTyped = normalize(typedCode).replace(/    /g, "  ");
 
     if (!cleanTyped) {
       return {
@@ -205,8 +206,8 @@ export class BlackoutBuildRenderer {
     const overallAccuracy = Math.round(charAccuracy * 0.7 + lineAccuracy * 0.3);
 
     const isPerfect = cleanTarget === cleanTyped;
-    const pointsEarned = isPerfect 
-      ? maxPoints 
+    const pointsEarned = isPerfect
+      ? maxPoints
       : Math.round((overallAccuracy / 100) * maxPoints);
 
     const passed = overallAccuracy >= 60;
@@ -277,8 +278,8 @@ export class BlackoutBuildRenderer {
     const seconds = elapsedSeconds % 60;
     const timeFormatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
-    const avgAccuracy = roundResults.length > 0 
-      ? Math.round(roundResults.reduce((acc, r) => acc + (r.accuracy || 0), 0) / roundResults.length) 
+    const avgAccuracy = roundResults.length > 0
+      ? Math.round(roundResults.reduce((acc, r) => acc + (r.accuracy || 0), 0) / roundResults.length)
       : 0;
 
     return `
@@ -305,8 +306,8 @@ export class BlackoutBuildRenderer {
             </thead>
             <tbody>
               ${BLACKOUT_LEVELS.map((lvl, idx) => {
-                const res = roundResults[idx] || { passed: false, accuracy: 0, pointsEarned: 0 };
-                return `
+      const res = roundResults[idx] || { passed: false, accuracy: 0, pointsEarned: 0 };
+      return `
                   <tr class="${res.passed ? 'row-pass' : 'row-fail'}">
                     <td><b>Round ${lvl.level}</b></td>
                     <td>${lvl.difficulty}</td>
@@ -316,7 +317,7 @@ export class BlackoutBuildRenderer {
                     <td class="neon-amber"><b>+${res.pointsEarned || 0} / ${lvl.maxPoints}</b></td>
                   </tr>
                 `;
-              }).join('')}
+    }).join('')}
             </tbody>
           </table>
         </div>

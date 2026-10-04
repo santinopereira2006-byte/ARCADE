@@ -54,9 +54,9 @@ function fitModel(root, { span, by = "max", anchor = "bottom" }) {
   const size = box.getSize(new THREE.Vector3());
   const ref =
     by === "xz" ? Math.max(size.x, size.z) :
-    by === "x" ? size.x :
-    by === "y" ? size.y :
-    Math.max(size.x, size.y, size.z);
+      by === "x" ? size.x :
+        by === "y" ? size.y :
+          Math.max(size.x, size.y, size.z);
   root.scale.multiplyScalar(span / (ref || 1));
   root.updateMatrixWorld(true);
   const b2 = new THREE.Box3().setFromObject(root);
@@ -125,6 +125,7 @@ export class RoomDecor {
   constructor(scene, bounds, opts = {}) {
     this.scene = scene;
     this.bounds = bounds;
+    this._quality = opts.quality || "low";
     this.envMap = opts.envMap || null;
     this.floorY = opts.floorY || 0;
     this.walls = opts.walls || { xMin: -bounds.x - 1.6, xMax: bounds.x + 1.6, zMin: -bounds.z - 1.6, zMax: bounds.z + 1.6 };
@@ -168,15 +169,21 @@ export class RoomDecor {
     try {
       await Promise.race([
         Promise.all(["bold 64px Orbitron", "bold 40px 'Share Tech Mono'"].map(f => document.fonts.load(f))),
-        new Promise(r => setTimeout(r, 1500))
+        new Promise(r => setTimeout(r, 600))
       ]);
     } catch (_) { /* fall back to monospace */ }
-    const [floor, ball, phones, play] = await Promise.all([
-      this.tryModel("danceFloor", DECOR_MODELS.danceFloor),
-      this.tryModel("discoBall", DECOR_MODELS.discoBall),
-      this.tryModel("headphoneSign", DECOR_MODELS.headphoneSign),
-      this.tryModel("playNeon", DECOR_MODELS.playNeon)
-    ]);
+
+    // On Low quality, skip attempting to download 4 heavy external GLTF decor models.
+    // Use the instant, lightweight built-in procedural cyber geometries!
+    const isLow = this._quality === "low";
+    const [floor, ball, phones, play] = isLow
+      ? [null, null, null, null]
+      : await Promise.all([
+        this.tryModel("danceFloor", DECOR_MODELS.danceFloor),
+        this.tryModel("discoBall", DECOR_MODELS.discoBall),
+        this.tryModel("headphoneSign", DECOR_MODELS.headphoneSign),
+        this.tryModel("playNeon", DECOR_MODELS.playNeon)
+      ]);
     onNote && onNote("Wiring up the neon…");
 
     this.buildDanceFloor(floor);
@@ -220,95 +227,79 @@ export class RoomDecor {
 
   // -------------------------------------------------------------- dance floor
 
+  // -------------------------------------------------------------- dance floor
+
   buildDanceFloor(gltf) {
     const size = FLOOR_SIZE;
     const holder = new THREE.Group();
     holder.name = "dance-floor";
-    if (gltf) {
-      // The model's surface is its top face; sink it so the top sits at FLOOR_TOP.
-      const wrap = fitModel(gltf.scene, { span: size, by: "xz", anchor: "top" });
-      wrap.position.y = FLOOR_TOP;
-      // Tame the model's emissive so it glows without flooding the room with bloom.
-      gltf.scene.traverse(n => {
-        if (!n.isMesh || !n.material) return;
-        [].concat(n.material).forEach(m => { if ("emissiveIntensity" in m) m.emissiveIntensity = 1.3; });
-      });
-      holder.add(wrap);
-      this.playClips(gltf.scene, gltf.animations);
-    } else {
-      this.buildTileFloor(holder, size);
-    }
-    // Plinth sides + neon lip so the platform reads as raised.
+
+    // 1. Single plane for the animated neon disco floor (1 draw call, 0 lights!)
+    const c = document.createElement("canvas");
+    c.width = 256;
+    c.height = 256;
+    this.floorCanvas = c;
+    this.floorCtx = c.getContext("2d");
+    this.floorTex = new THREE.CanvasTexture(c);
+    this.floorTex.colorSpace = THREE.SRGBColorSpace;
+    this.floorTex.wrapS = this.floorTex.wrapT = THREE.RepeatWrapping;
+
+    const floorPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(size, size),
+      new THREE.MeshBasicMaterial({ map: this.floorTex, toneMapped: false })
+    );
+    floorPlane.rotation.x = -Math.PI / 2;
+    floorPlane.position.y = FLOOR_TOP;
+    holder.add(floorPlane);
+
+    // 2. Simple plinth box underneath
     const plinth = new THREE.Mesh(
       new THREE.BoxGeometry(size + 0.1, FLOOR_TOP - 0.02, size + 0.1),
-      new THREE.MeshStandardMaterial({ color: 0x0b0d18, roughness: 0.4, metalness: 0.6 })
+      new THREE.MeshBasicMaterial({ color: 0x090b14 })
     );
     plinth.position.y = (FLOOR_TOP - 0.02) / 2;
     holder.add(plinth);
-    const lipMat = glowMat(0xffffff, 0.9);
-    const h = size / 2 + 0.06;
-    [[0, h, size + 0.24, 0.08], [0, -h, size + 0.24, 0.08], [h, 0, 0.08, size + 0.24], [-h, 0, 0.08, size + 0.24]].forEach(([x, z, w, d]) => {
-      const lip = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), lipMat);
-      lip.position.set(x, FLOOR_TOP - 0.03, z);
+
+    // 3. Glowing neon lip border
+    const lipMat = glowMat(0xff2bd6, 1.2);
+    const h = size / 2 + 0.05;
+    [[0, h, size + 0.2, 0.06], [0, -h, size + 0.2, 0.06], [h, 0, 0.06, size + 0.2], [-h, 0, 0.06, size + 0.2]].forEach(([x, z, w, d]) => {
+      const lip = new THREE.Mesh(new THREE.BoxGeometry(w, 0.04, d), lipMat);
+      lip.position.set(x, FLOOR_TOP - 0.01, z);
       holder.add(lip);
     });
     this.floorLip = lipMat;
-    // Soft glow pool spilling onto the room floor around the platform.
-    const pool = new THREE.Mesh(new THREE.PlaneGeometry(size + 4, size + 4), additive(0xffffff, 0.05, this.glowTex));
-    pool.rotation.x = -Math.PI / 2;
-    pool.position.y = 0.012;
-    holder.add(pool);
-    // Two lights so nearby cabinets and statues pick up the floor colours.
-    [[-2, 0xff2bd6], [2, 0x00e5ff]].forEach(([x, c]) => {
-      const l = new THREE.PointLight(c, 8, 12, 2);
-      l.position.set(x, 1.2, 0);
-      holder.add(l);
-      this.lights.push(l);
-    });
-    this.floorLights = this.lights.slice(-2);
+
     this.group.add(holder);
+    this.drawFloorTexture(0);
   }
 
-  buildTileFloor(holder, size) {
-    const N = 10;
-    const tile = size / N;
-    const tiles = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(tile * 0.92, 0.04, tile * 0.92),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }),
-      N * N
-    );
-    const m4 = new THREE.Matrix4();
-    for (let i = 0; i < N; i++) {
-      for (let j = 0; j < N; j++) {
-        m4.makeTranslation((i - (N - 1) / 2) * tile, FLOOR_TOP - 0.01, (j - (N - 1) / 2) * tile);
-        tiles.setMatrixAt(i * N + j, m4);
-        tiles.setColorAt(i * N + j, this._c.setHex(0x222222));
-      }
-    }
-    holder.add(tiles);
-    this.tiles = { mesh: tiles, N, t: 0, mode: 0, modeT: 0 };
-  }
-
-  updateTiles(dt, t) {
-    const T = this.tiles;
-    if (!T) return;
-    T.t += dt; T.modeT += dt;
-    if (T.modeT > 6) { T.modeT = 0; T.mode = (T.mode + 1) % 3; }
-    if (T.t < 1 / 10) return;
-    T.t = 0;
-    const { N } = T;
+  drawFloorTexture(t) {
+    if (!this.floorCtx) return;
+    const ctx = this.floorCtx;
+    const N = 8;
+    const cell = 256 / N;
     const beat = Math.floor(t * 2);
     for (let i = 0; i < N; i++) {
       for (let j = 0; j < N; j++) {
-        let idx;
-        if (T.mode === 0) idx = (i + j + beat) % NEON.length;
-        else if (T.mode === 1) idx = Math.floor(Math.hypot(i - N / 2, j - N / 2) - t * 4) & 0xff;
-        else idx = Math.random() < 0.5 ? Math.floor(Math.random() * NEON.length) : -1;
-        this._c.setHex(idx < 0 ? 0xdddddd : NEON[idx % NEON.length]).lerp(new THREE.Color(0xffffff), 0.35);
-        T.mesh.setColorAt(i * N + j, this._c);
+        const colorIdx = (i + j + beat) % NEON.length;
+        const hex = "#" + new THREE.Color(NEON[colorIdx]).getHexString();
+        ctx.fillStyle = hex;
+        ctx.fillRect(i * cell + 1.5, j * cell + 1.5, cell - 3, cell - 3);
+        ctx.strokeStyle = "rgba(255,255,255,0.45)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(i * cell + 1.5, j * cell + 1.5, cell - 3, cell - 3);
       }
     }
-    T.mesh.instanceColor.needsUpdate = true;
+    this.floorTex.needsUpdate = true;
+  }
+
+  updateTiles(dt, t) {
+    this._floorTick = (this._floorTick || 0) + dt;
+    if (this._floorTick >= 0.12) {
+      this._floorTick = 0;
+      this.drawFloorTexture(t);
+    }
   }
 
   /** Walkable height (world Y) at a point: the dance-floor top or the room floor. */
@@ -725,7 +716,7 @@ export class RoomDecor {
   }
 
   buildOrbs() {
-    const n = 44;
+    const n = 24; // capped to 24 per low-end GPU spec
     const pos = new Float32Array(n * 3);
     const col = new Float32Array(n * 3);
     this.orbSeeds = [];
@@ -741,15 +732,15 @@ export class RoomDecor {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    // Simple unlit points — no heavy transparent overlapping sprites
     this.orbs = new THREE.Points(geo, new THREE.PointsMaterial({
-      size: 0.75, map: this.glowTex, vertexColors: true, transparent: true, opacity: 0.85,
-      depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false
+      size: 0.28, vertexColors: true, depthWrite: false, toneMapped: false
     }));
     this.group.add(this.orbs);
   }
 
   updateOrbs(t) {
-    if (!this.orbs) return;
+    if (!this.orbs || !this.orbs.visible) return;
     const a = this.orbs.geometry.attributes.position;
     this.orbSeeds.forEach((s, i) => a.setY(i, s.y + Math.sin(t * s.s + s.p) * 0.35));
     a.needsUpdate = true;
@@ -778,25 +769,50 @@ export class RoomDecor {
     });
   }
 
-  /** Statues load in the background (Master Chief alone is ~68 MB). */
+  /** Statues load in background with cheap materials (MeshLambert) and zero reflections. */
   async loadStatues() {
+    if (this._quality === "low") {
+      console.info("[arena] Low graphics: skipping 6 background statue GLTFs for instant load & max FPS");
+      return;
+    }
     await Promise.all(this.statueSpots.map(async ({ cfg, holder }) => {
       const gltf = await this.tryModel(cfg.id, cfg.files);
       if (!gltf) return;
       const model = gltf.scene;
-      // The hall is nearly black; give statues a soft studio reflection so
-      // they read like the lit figures in the reference.
+
+      // Optimize materials: replace standard/physical with lambert/basic, kill envMap/transmission
       model.traverse(n => {
         if (!n.isMesh) return;
-        n.frustumCulled = false;
-        [].concat(n.material).forEach(m => {
-          if (m && m.isMeshStandardMaterial) { m.envMap = this.envMap; m.envMapIntensity = 1.4; m.needsUpdate = true; }
+        n.frustumCulled = true; // Enable frustum culling to skip statues off-camera
+        const mats = Array.isArray(n.material) ? n.material : [n.material];
+        const optimized = mats.map(m => {
+          if (!m) return m;
+          // Downsample and optimize textures
+          if (m.map) {
+            m.map.generateMipmaps = true;
+            m.map.minFilter = THREE.LinearMipmapLinearFilter;
+          }
+          if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) {
+            const lambert = new THREE.MeshLambertMaterial({
+              color: m.color || new THREE.Color(0xffffff),
+              map: m.map || null,
+              emissive: m.emissive || new THREE.Color(0x000000),
+              emissiveMap: m.emissiveMap || null,
+              side: m.side || THREE.FrontSide
+            });
+            return lambert;
+          }
+          if (m.envMap) m.envMap = null;
+          return m;
         });
+        n.material = Array.isArray(n.material) ? optimized : optimized[0];
       });
-      this.playClips(model, gltf.animations, cfg.clip, cfg.freeze);
+
+      // On Low quality, freeze animations to eliminate CPU skeletal mixer costs
+      const freeze = this._quality === "low" || cfg.freeze;
+      this.playClips(model, gltf.animations, cfg.clip, freeze);
       const wrap = fitModel(model, { span: cfg.height, by: "y" });
       wrap.position.y = 0.06;
-      // Face the dance floor.
       wrap.rotation.y = Math.atan2(-holder.position.x, -holder.position.z);
       holder.add(wrap);
     }));
@@ -805,20 +821,25 @@ export class RoomDecor {
   // -------------------------------------------------------------- per frame
 
   update(dt, t) {
-    this.mixers.forEach(m => m.update(dt));
+    if (this._quality !== "low") {
+      this.mixers.forEach(m => m.update(dt));
+      this.updateDisco(dt, t);
+      this.updateStrings(dt, t);
+      this.updateOrbs(t);
+    }
     this.updateTiles(dt, t);
-    this.updateDisco(dt, t);
-    this.updateStrings(dt, t);
-    this.updateOrbs(t);
     this.pulses.forEach(p => p.mat.color.copy(p.base).multiplyScalar(0.7 + 0.3 * Math.sin(t * 2.4 + p.phase)));
     if (this.floorLip) this.floorLip.color.setHex(NEON[Math.floor(t * 1.2) % NEON.length]);
-    if (this.floorLights) this.floorLights.forEach((l, i) => l.color.setHex(NEON[(Math.floor(t * 1.5) + i * 2) % NEON.length]));
   }
 
   setQuality(q) {
-    const on = q !== "low";
-    this.lights.forEach(l => { l.visible = on; });
-    if (this.beams) this.beams.visible = on;
-    if (this.orbs) this.orbs.visible = on;
+    this._quality = q;
+    const isHigh = q === "high";
+    const isLow = q === "low";
+    this.lights.forEach(l => { l.visible = isHigh; });
+    if (this.beams) this.beams.visible = !isLow;
+    if (this.specks) this.specks.visible = isHigh;
+    if (this.orbs) this.orbs.visible = !isLow;
+    if (this.strings && this.strings.halos) this.strings.halos.visible = !isLow;
   }
 }
