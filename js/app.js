@@ -160,7 +160,7 @@ class ArcadeApp {
   bindGlobalNavigation() {
     const participantLoginForm = document.getElementById("participantLoginForm");
     if (participantLoginForm) {
-      participantLoginForm.addEventListener("submit", (event) => {
+      participantLoginForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         const nameInput = document.getElementById("participantTeamName");
         const errorEl = document.getElementById("participantLoginError");
@@ -172,9 +172,12 @@ class ArcadeApp {
           return;
         }
 
-        // Check if team already exists in roster by name
-        const roster = LeaderboardManager.getRoster();
-        let team = roster.find(t => t.name.toLowerCase() === enteredName.toLowerCase());
+        // Check if team already exists in roster by name (local or MongoDB)
+        let team = await LeaderboardManager.findTeamByCredentialsAsync(enteredName, "");
+        if (!team) {
+          const roster = LeaderboardManager.getRoster();
+          team = roster.find(t => t.name.toLowerCase() === enteredName.toLowerCase());
+        }
 
         if (!team) {
           // Automatically register this participant/team
@@ -366,126 +369,8 @@ class ArcadeApp {
   }
 
   showRegistrationModal() {
-    // Kept as a compatibility entry point for the original UI hooks.
+    // Compatibility entry point forwarding to the provision modal
     return this.showTeamProvisionModal();
-    /* legacy registration flow intentionally disabled: teams are provisioned by admins */
-    const modal = document.getElementById("registrationModal");
-    const modalBody = document.getElementById("registrationModalBody");
-    if (!modal || !modalBody) {
-      this.startGame();
-      return;
-    }
-
-    const roster = LeaderboardManager.getRoster();
-    const readyTeams = roster.filter(t => t.status !== "completed");
-
-    modalBody.innerHTML = `
-      <div class="modal-cyber-glow"></div>
-      <div class="reg-header">
-        <span class="game-badge">TOURNAMENT PROTOCOL</span>
-        <h2 class="reg-title glitch-title" data-text="STAGE REGISTRATION">STAGE REGISTRATION</h2>
-        <p class="reg-sub">Enter team details or select a registered team queueing for the stage</p>
-        <button type="button" class="btn-close-modal" id="btnCloseRegModal">✕</button>
-      </div>
-
-      ${readyTeams.length > 0 ? `
-        <div class="reg-roster-select-box">
-          <label class="reg-label">SELECT QUEUED TEAM (ORGANIZER ROSTER):</label>
-          <div class="queued-teams-list">
-            ${readyTeams.map(t => `
-              <div class="queued-team-card" data-team-id="${t.id}" data-team-name="${t.name}" data-team-dept="${t.department}">
-                <div class="q-team-info">
-                  <strong class="q-name">${t.name}</strong>
-                  <span class="q-dept">${t.department} ${t.members ? `• ${t.members}` : ''}</span>
-                </div>
-                <button type="button" class="btn-select-queued-team btn-secondary-gaming">SELECT &amp; PLAY ▶</button>
-              </div>
-            `).join('')}
-          </div>
-          <div class="reg-or-divider"><span>OR REGISTER NEW TEAM ON-THE-FLY</span></div>
-        </div>
-      ` : ''}
-
-      <form id="teamRegistrationForm" class="reg-form">
-        <div class="reg-fields-grid">
-          <div class="reg-field">
-            <label for="regTeamName">TEAM / CONTESTANT NAME *</label>
-            <input type="text" id="regTeamName" class="arcade-text-input" placeholder="e.g. CyberKnights or Team Alpha" required autofocus maxlength="32" />
-          </div>
-          <div class="reg-field">
-            <label for="regTeamDept">DEPARTMENT / COLLEGE</label>
-            <input type="text" id="regTeamDept" class="arcade-text-input" placeholder="e.g. Computer Engineering (SY)" maxlength="40" />
-          </div>
-          <div class="reg-field full-width">
-            <label for="regTeamMembers">TEAM MEMBERS (OPTIONAL)</label>
-            <input type="text" id="regTeamMembers" class="arcade-text-input" placeholder="e.g. Rahul Sharma &amp; Priya Patel" maxlength="60" />
-          </div>
-        </div>
-
-        <div class="reg-actions-row">
-          <button type="button" class="btn-secondary-gaming" id="btnQuickGuest">
-            ⚡ QUICK PLAY (GUEST)
-          </button>
-          <button type="submit" class="btn-primary-gaming" id="btnConfirmRegistration">
-            ENTER ARENA &amp; START ▶
-          </button>
-        </div>
-      </form>
-    `;
-
-    modal.classList.add("active");
-    modal.onclick = (event) => {
-      if (event.target === modal) modal.classList.remove("active");
-    };
-
-    const closeBtn = document.getElementById("btnCloseRegModal");
-    if (closeBtn) {
-      closeBtn.addEventListener("click", () => modal.classList.remove("active"));
-    }
-
-    // Select queued team
-    document.querySelectorAll(".btn-select-queued-team").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        const card = e.target.closest(".queued-team-card");
-        if (card) {
-          const teamId = card.dataset.teamId;
-          const teamName = card.dataset.teamName;
-          const teamDept = card.dataset.teamDept;
-          modal.classList.remove("active");
-          this.startGameWithTeam({ id: teamId, name: teamName, department: teamDept });
-        }
-      });
-    });
-
-    // Quick guest
-    const guestBtn = document.getElementById("btnQuickGuest");
-    if (guestBtn) {
-      guestBtn.addEventListener("click", () => {
-        modal.classList.remove("active");
-        this.startGameWithTeam({ id: "guest-" + Date.now(), name: "Guest Challenger", department: "General Engineering", isGuest: true });
-      });
-    }
-
-    // Submit form
-    const form = document.getElementById("teamRegistrationForm");
-    if (form) {
-      form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const nameInput = document.getElementById("regTeamName");
-        const deptInput = document.getElementById("regTeamDept");
-        const memInput = document.getElementById("regTeamMembers");
-
-        const name = nameInput ? nameInput.value.trim() : "";
-        const department = deptInput ? deptInput.value.trim() : "General Engineering";
-        const members = memInput ? memInput.value.trim() : "";
-
-        if (!name) return;
-
-        const newTeam = LeaderboardManager.registerTeam({ name, department, members });
-        modal.classList.remove("active");
-        this.startGameWithTeam(newTeam);
-      });
-    }
   }
 
   showTeamProvisionModal() {
@@ -620,12 +505,13 @@ class ArcadeApp {
     // Submit form
     const form = document.getElementById("adminLoginForm");
     if (form) {
-      form.addEventListener("submit", (e) => {
+      form.addEventListener("submit", async (e) => {
         e.preventDefault();
         const passphrase = passInput ? passInput.value.trim() : "";
         const errorMsg = document.getElementById("authErrorMsg");
 
-        if (AuthManager.authenticate(passphrase)) {
+        const isAuthed = await AuthManager.authenticateAsync(passphrase);
+        if (isAuthed) {
           // Success
           modal.classList.remove("active");
           AuthManager.applyRoleVisibility();

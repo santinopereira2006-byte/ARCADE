@@ -12,6 +12,7 @@ import { LeaderboardManager } from "./leaderboard.js";
 import { AuthManager } from "./auth.js";
 import { GradientText } from "./gradient-text.js";
 import { SpotlightCard } from "./spotlight-card.js";
+import { dbApi } from "./api.js";
 
 export class OrganizerConsole {
   constructor(state, app) {
@@ -19,6 +20,12 @@ export class OrganizerConsole {
     this.app = app;
     this.isOpen = false;
     this.lastCreatedTeam = null;
+
+    LeaderboardManager.onSync(() => {
+      if (this.isOpen) {
+        this.renderDashboard();
+      }
+    });
   }
 
   init() {
@@ -105,7 +112,12 @@ export class OrganizerConsole {
             <div class="org-section org-roster-section">
               <div class="org-section-heading-row">
                 <label class="org-sec-lbl">TEAM ROSTER &amp; ACCESS CODES (${roster.length})</label>
-                <span class="org-live-label"><span class="live-pulse-dot"></span> LIVE ROSTER</span>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span class="org-live-label" title="${dbApi.isDbConnected ? 'Connected to MongoDB' : 'Running in local fallback mode'}">
+                    <span class="live-pulse-dot" style="background:${dbApi.isDbConnected ? '#22c55e' : '#eab308'};"></span>
+                    ${dbApi.isDbConnected ? 'MONGODB SYNCED' : 'LOCAL CACHE'}
+                  </span>
+                </div>
               </div>
               <div class="org-roster-list">
                 ${roster.length ? roster.map(team => `

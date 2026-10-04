@@ -44,11 +44,30 @@ body {
   background-repeat: no-repeat, no-repeat, no-repeat, repeat, repeat;
 }
 
-body[data-round-bg="1"] { background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round1.png"); background-size: cover; }
-body[data-round-bg="2"] { background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round2.png"); background-size: cover; }
-body[data-round-bg="3"] { background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round3.png"); background-size: cover; }
-body[data-round-bg="4"] { background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round4.png"); background-size: cover; }
-body[data-round-bg="5"] { background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round5.png"); background-size: cover; }
+body[data-round-bg="1"] {
+  background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round1.png");
+  background-size: cover;
+}
+
+body[data-round-bg="2"] {
+  background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round2.png");
+  background-size: cover;
+}
+
+body[data-round-bg="3"] {
+  background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round3.png");
+  background-size: cover;
+}
+
+body[data-round-bg="4"] {
+  background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round4.png");
+  background-size: cover;
+}
+
+body[data-round-bg="5"] {
+  background-image: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.62) 0%, rgba(2, 4, 10, 0.72) 100%), url("../assets/bg-round5.png");
+  background-size: cover;
+}
 
 .cyber-grid-overlay {
   display: none !important;
@@ -195,10 +214,25 @@ body[data-round-bg="5"] { background-image: radial-gradient(ellipse at center, r
 }
 
 /* Neon rim colour cycling: magenta, cyan, green, pink */
-.btn-choice-opt:nth-child(4n+1) { border-color: var(--nb-magenta); box-shadow: 0 0 14px rgba(255, 43, 214, 0.35); }
-.btn-choice-opt:nth-child(4n+2) { border-color: var(--nb-cyan);    box-shadow: 0 0 14px rgba(0, 229, 255, 0.35); }
-.btn-choice-opt:nth-child(4n+3) { border-color: var(--nb-green);   box-shadow: 0 0 14px rgba(57, 255, 20, 0.30); }
-.btn-choice-opt:nth-child(4n+4) { border-color: var(--nb-pink);    box-shadow: 0 0 14px rgba(255, 79, 216, 0.35); }
+.btn-choice-opt:nth-child(4n+1) {
+  border-color: var(--nb-magenta);
+  box-shadow: 0 0 14px rgba(255, 43, 214, 0.35);
+}
+
+.btn-choice-opt:nth-child(4n+2) {
+  border-color: var(--nb-cyan);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.35);
+}
+
+.btn-choice-opt:nth-child(4n+3) {
+  border-color: var(--nb-green);
+  box-shadow: 0 0 14px rgba(57, 255, 20, 0.30);
+}
+
+.btn-choice-opt:nth-child(4n+4) {
+  border-color: var(--nb-pink);
+  box-shadow: 0 0 14px rgba(255, 79, 216, 0.35);
+}
 
 .opt-prefix {
   flex: 0 0 auto;
@@ -213,10 +247,25 @@ body[data-round-bg="5"] { background-image: radial-gradient(ellipse at center, r
   background: var(--nb-cyan);
 }
 
-.btn-choice-opt:nth-child(4n+1) .opt-prefix { background: var(--nb-magenta); box-shadow: 0 0 10px var(--nb-magenta); }
-.btn-choice-opt:nth-child(4n+2) .opt-prefix { background: var(--nb-cyan);    box-shadow: 0 0 10px var(--nb-cyan); }
-.btn-choice-opt:nth-child(4n+3) .opt-prefix { background: var(--nb-green);   box-shadow: 0 0 10px var(--nb-green); }
-.btn-choice-opt:nth-child(4n+4) .opt-prefix { background: var(--nb-pink);    box-shadow: 0 0 10px var(--nb-pink); }
+.btn-choice-opt:nth-child(4n+1) .opt-prefix {
+  background: var(--nb-magenta);
+  box-shadow: 0 0 10px var(--nb-magenta);
+}
+
+.btn-choice-opt:nth-child(4n+2) .opt-prefix {
+  background: var(--nb-cyan);
+  box-shadow: 0 0 10px var(--nb-cyan);
+}
+
+.btn-choice-opt:nth-child(4n+3) .opt-prefix {
+  background: var(--nb-green);
+  box-shadow: 0 0 10px var(--nb-green);
+}
+
+.btn-choice-opt:nth-child(4n+4) .opt-prefix {
+  background: var(--nb-pink);
+  box-shadow: 0 0 10px var(--nb-pink);
+}
 
 .opt-text,
 .opt-label {
@@ -374,4 +423,3 @@ body.participant-mode .hud-score-badge {
   color: var(--nb-yellow);
   text-shadow: 0 0 12px rgba(255, 230, 0, 0.6);
 }
-

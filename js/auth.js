@@ -10,6 +10,8 @@
  * This is NOT production-grade security — it's lightweight event-day auth for a college tournament.
  */
 
+import { dbApi } from "./api.js";
+
 const ADMIN_PASSPHRASE = "CSI2026"; // Change this before the event
 const AUTH_SESSION_KEY = "arcade_auth_session";
 const PARTICIPANT_SESSION_KEY = "arcade_participant_session";
@@ -27,6 +29,26 @@ export class AuthManager {
     } catch (e) {
       return false;
     }
+  }
+
+  /**
+   * Authenticate with passphrase (async with backend check, local fallback)
+   */
+  static async authenticateAsync(passphrase) {
+    try {
+      const res = await dbApi.adminLogin(passphrase);
+      if (res && res.success) {
+        sessionStorage.removeItem(PARTICIPANT_SESSION_KEY);
+        sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({
+          role: "admin",
+          authenticated: true,
+          loginTime: res.loginTime || new Date().toISOString()
+        }));
+        return true;
+      }
+    } catch (_) {}
+
+    return this.authenticate(passphrase);
   }
 
   /**

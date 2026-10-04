@@ -1,3 +1,5 @@
+import { dbApi } from "./api.js";
+
 /**
  * ARCADE - Central State Store
  * Manages tournament progression, scores across all 4 rounds, stats, and tier rankings
@@ -106,6 +108,10 @@ export class ArcadeState {
         timestamp: Date.now()
       };
       localStorage.setItem("arcade_tournament_progress", JSON.stringify(data));
+
+      if (this.activeTeam && this.activeTeam.id) {
+        dbApi.saveProgress(this.activeTeam.id, data).catch(() => { });
+      }
     } catch (e) {
       console.warn("Could not save arcade tournament progress:", e);
     }
@@ -132,10 +138,34 @@ export class ArcadeState {
     return false;
   }
 
+  async syncProgressFromDB(teamId) {
+    if (!teamId) return false;
+    try {
+      const data = await dbApi.getProgress(teamId);
+      if (data) {
+        if (typeof data.totalScore === "number") this.totalScore = data.totalScore;
+        if (data.roundScores) this.roundScores = { ...this.roundScores, ...data.roundScores };
+        if (Array.isArray(data.completedRounds)) {
+          this.completedRounds = new Set(data.completedRounds.map(Number));
+        }
+        if (data.activeTeam && data.activeTeam.id) this.activeTeam = data.activeTeam;
+        if (data.stats) this.stats = data.stats;
+        if (data.currentRound) this.currentRound = data.currentRound;
+        this.saveProgress();
+        return true;
+      }
+    } catch (_) { }
+    return false;
+  }
+
   clearProgress() {
     try {
+      const teamId = this.activeTeam?.id;
       localStorage.removeItem("arcade_tournament_progress");
-    } catch (e) {}
+      if (teamId) {
+        dbApi.clearProgress(teamId).catch(() => { });
+      }
+    } catch (e) { }
   }
 
   setTeam(teamData) {

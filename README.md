@@ -14,53 +14,70 @@ The app also provides a results screen, performance tiers, presentation mode, an
 
 ## Run locally
 
-Requires Windows PowerShell and a modern browser. There are no package installs or build step.
+### Option 1: Node.js + MongoDB Server (Recommended)
 
-From this directory, run:
+This mode connects all participant laptops, organizer screens, and projector leaderboards to a shared MongoDB database with live sync.
+
+1. Install dependencies (already prepared):
+   ```bash
+   npm install
+   ```
+2. Configure your database in `.env`:
+   - By default, it connects to local MongoDB: `mongodb://127.0.0.1:27017/arcade_tournament`
+   - Or paste your free **MongoDB Atlas** cloud URI:
+     ```env
+     MONGODB_URI=mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/arcade_tournament?retryWrites=true&w=majority
+     PORT=8080
+     ADMIN_PASSPHRASE=CSI2026
+     ```
+3. Start the server:
+   ```bash
+   npm start
+   # or for auto-reload during development:
+   npm run dev
+   # or on Windows, simply double-click start-arcade.bat
+   ```
+4. Open `http://localhost:8080` in your browser. Other devices on the same Wi-Fi / network can connect to `http://<YOUR_IP_ADDRESS>:8080`.
+
+### Option 2: Zero-Dependency Fallback Server
+
+If Node.js or MongoDB is unavailable, you can still launch the app with PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\start-arcade.ps1
 ```
 
-The script starts a local HTTP server at `http://localhost:8080/` and opens the app in your browser. Serve the files over HTTP rather than opening `index.html` directly, because the app uses JavaScript modules.
+In fallback mode, data is cached in the browser's `localStorage`. When the MongoDB backend becomes available, the app automatically synchronizes with the database!
 
-To check that the expected application files and content are present:
+To check that all expected application files and content are present:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\verify-arcade.ps1
 ```
 
-This is a file and content integrity check, not a browser automation or gameplay test.
+## Centralized MongoDB Database & Live Sync
 
-## Publish
-
-The project is a static site and includes `vercel.json` for Vercel hosting. Import this directory as a project or deploy it with the Vercel CLI; no build command or environment variables are currently required. Other static web hosts can serve the project root as-is. Keep the folders and paths intact, including `assets/`, `css/`, `js/`, and `models/`, because the app loads these files by relative URL.
-
-Google Fonts are requested from `fonts.googleapis.com` and `fonts.gstatic.com`; if those services are unavailable, the browser uses fallback fonts. All game logic and content are local to this project.
+The backend provides:
+- **Shared Team Roster**: Teams created by an admin are saved to MongoDB and immediately available on all participant devices.
+- **Real-Time Live Sync**: Leaderboard updates and team registrations are broadcast live via Server-Sent Events (SSE). Projector displays and organizer terminals update without refreshing.
+- **Persistent Leaderboard**: Player scores across all 5 rounds and final rankings are permanently saved.
+- **Offline-First Hybrid Resilience**: If the database or network temporarily disconnects, games and scores automatically fall back to local storage and queue sync when reconnected.
 
 ## Access and organizer workflow
 
 ### Participants
 
-1. An organizer opens **Admin Login** and creates a team in the organizer console.
-2. The organizer shares the team name and generated access code with that team.
-3. The participant enters both on the check-in screen to start playing.
-
-The participant session is held in the current browser tab session. Team name and access code must match a team in that browser's saved roster.
+1. An organizer creates a team in the organizer console (or registers on-the-fly).
+2. The organizer shares the team name and 6-character access code with that team.
+3. The participant enters both on the check-in screen to begin.
 
 ### Organizers
 
 - Use **Admin Login** on the home screen, or press `Ctrl + Shift + O` to open the organizer access flow.
-- The current passphrase is `CSI2026`. It is defined by `ADMIN_PASSPHRASE` in `js/auth.js`; change it there before an event if needed.
-- The organizer console can create and remove teams, issue codes, view the roster and scores, jump to a round, skip or reset a question, adjust scores, inspect answer keys, and open the tie-breaker.
-- Admins can open the leaderboard and export its data as CSV. The leaderboard reset action restores the built-in sample entries.
+- The default passphrase is `CSI2026` (configurable in `.env` as `ADMIN_PASSPHRASE`).
+- The organizer console can create and remove teams, issue codes, view the roster and scores, jump to any round, adjust scores, inspect answer keys, and launch the sudden-death tie-breaker.
+- Admins can view the live leaderboard and export rankings as CSV.
 - Press `P` to toggle presentation mode. Press `Escape` to close open modals.
-
-### Important storage and access limits
-
-This version has **no backend, server-side authentication, or shared database**. Teams, access codes, scores, and leaderboard entries are saved in the browser's `localStorage`; sign-in state is saved in `sessionStorage`. Browser storage is separated by browser profile and site origin. Consequently, creating teams on one device does not provision them on another device, and standings do not sync between participants or browsers. For an event using multiple devices, this build requires a shared organizer device/browser workflow; it does not provide centralized live standings.
-
-The passphrase and all app code are delivered to the browser. The passphrase is visible in the source, and browser-side role checks are not a security boundary. Do not use this build to protect sensitive data or as production-grade authentication. The access code screen is a local event workflow, not server-enforced access control.
 
 ## Project layout
 

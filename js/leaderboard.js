@@ -3,6 +3,8 @@
  * Manages persistent tournament rankings, podium standings, CSV exports, and score submissions
  */
 
+import { dbApi } from "./api.js";
+
 const STORAGE_KEY = "arcade_tournament_leaderboard";
 
 const DEFAULT_LEADERBOARD = [
@@ -81,17 +83,88 @@ const DEFAULT_LEADERBOARD = [
 const ROSTER_KEY = "arcade_registered_teams";
 
 export class LeaderboardManager {
+  static cachedRoster = null;
+  static cachedEntries = null;
+  static isInitialized = false;
+  static syncListeners = new Set();
+
+  static onSync(callback) {
+    if (typeof callback === 'function') {
+      this.syncListeners.add(callback);
+    }
+  }
+
+  static notifySync(type) {
+    this.syncListeners.forEach(fn => {
+      try { fn(type); } catch (_) {}
+    });
+  }
+
+  static async init() {
+    if (this.isInitialized) return;
+    this.isInitialized = true;
+
+    // Load initial local cache
+    this.getRoster();
+    this.getEntries();
+
+    // Async sync from MongoDB
+    await this.syncFromDB();
+
+    // Listen to real-time events for live updates across screens
+    dbApi.initLiveSync((eventType) => {
+      if (eventType === 'teams_updated') {
+        this.syncTeamsFromDB().then(() => this.notifySync('teams'));
+      } else if (eventType === 'leaderboard_updated') {
+        this.syncLeaderboardFromDB().then(() => this.notifySync('leaderboard'));
+      }
+    });
+  }
+
+  static async syncTeamsFromDB() {
+    try {
+      const teams = await dbApi.getTeams();
+      if (Array.isArray(teams)) {
+        this.cachedRoster = teams;
+        localStorage.setItem(ROSTER_KEY, JSON.stringify(teams));
+      }
+    } catch (_) {}
+  }
+
+  static async syncLeaderboardFromDB() {
+    try {
+      const entries = await dbApi.getLeaderboard();
+      if (Array.isArray(entries)) {
+        this.cachedEntries = entries;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+      }
+    } catch (_) {}
+  }
+
+  static async syncFromDB() {
+    await Promise.allSettled([
+      this.syncTeamsFromDB(),
+      this.syncLeaderboardFromDB()
+    ]);
+  }
+
   // ==========================================
   // REGISTERED TEAMS ROSTER MANAGEMENT
   // ==========================================
   static getRoster() {
+    if (this.cachedRoster) return this.cachedRoster;
     try {
       const raw = localStorage.getItem(ROSTER_KEY);
-      if (!raw) return [];
+      if (!raw) {
+        this.cachedRoster = [];
+        return [];
+      }
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      this.cachedRoster = Array.isArray(parsed) ? parsed : [];
+      return this.cachedRoster;
     } catch (e) {
       console.warn("Error reading roster:", e);
+      this.cachedRoster = [];
       return [];
     }
   }
@@ -103,7 +176,7 @@ export class LeaderboardManager {
       ? requestedCode
       : this.generateAccessCode(roster);
     const newTeam = {
-      id: "team-" + Date.now(),
+      id: teamData.id || ("team-" + Date.now()),
       name: teamData.name ? teamData.name.trim() : "Challenger " + (roster.length + 1),
       members: teamData.members ? teamData.members.trim() : "",
       department: teamData.department ? teamData.department.trim() : "General Engineering",
@@ -112,14 +185,19 @@ export class LeaderboardManager {
       status: "ready", // "ready" | "in-game" | "completed"
       score: 0,
       tier: "—",
-      roundScores: { 1: 0, 2: 0, 3: 0, 4: 0 }
+      roundScores: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
     };
     roster.push(newTeam);
+    this.cachedRoster = roster;
     try {
       localStorage.setItem(ROSTER_KEY, JSON.stringify(roster));
     } catch (e) {
       console.warn("Error saving roster:", e);
     }
+
+    // Persist to MongoDB in background
+    dbApi.createTeam(newTeam).catch(() => {});
+
     return newTeam;
   }
 
@@ -142,6 +220,29 @@ export class LeaderboardManager {
     ) || null;
   }
 
+  static async findTeamByCredentialsAsync(teamName, accessCode) {
+    const local = this.findTeamByCredentials(teamName, accessCode);
+    if (local) return local;
+
+    try {
+      const res = await dbApi.participantLogin(teamName, accessCode);
+      if (res && res.success && res.team) {
+        const roster = this.getRoster();
+        const existingIdx = roster.findIndex(t => t.id === res.team.id);
+        if (existingIdx !== -1) {
+          roster[existingIdx] = res.team;
+        } else {
+          roster.push(res.team);
+        }
+        this.cachedRoster = roster;
+        localStorage.setItem(ROSTER_KEY, JSON.stringify(roster));
+        return res.team;
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
   static updateTeamStatus(teamId, status, scoreData = null) {
     const roster = this.getRoster();
     const team = roster.find(t => t.id === teamId);
@@ -152,42 +253,61 @@ export class LeaderboardManager {
         team.tier = scoreData.tier || team.tier;
         team.roundScores = scoreData.roundScores || team.roundScores;
       }
+      this.cachedRoster = roster;
       try {
         localStorage.setItem(ROSTER_KEY, JSON.stringify(roster));
       } catch (e) {}
+
+      // Persist to MongoDB
+      dbApi.updateTeam(teamId, {
+        status,
+        score: team.score,
+        tier: team.tier,
+        roundScores: team.roundScores
+      }).catch(() => {});
     }
   }
 
   static removeTeam(teamId) {
     let roster = this.getRoster();
     roster = roster.filter(t => t.id !== teamId);
+    this.cachedRoster = roster;
     try {
       localStorage.setItem(ROSTER_KEY, JSON.stringify(roster));
     } catch (e) {}
+
+    // Delete in MongoDB
+    dbApi.deleteTeam(teamId).catch(() => {});
     return roster;
   }
 
   static clearRoster() {
+    this.cachedRoster = [];
     try {
       localStorage.removeItem(ROSTER_KEY);
     } catch (e) {}
+    dbApi.clearTeams().catch(() => {});
   }
 
   // ==========================================
   // TOURNAMENT LEADERBOARD
   // ==========================================
   static getEntries() {
+    if (this.cachedEntries) return this.cachedEntries;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) {
+        this.cachedEntries = [...DEFAULT_LEADERBOARD];
         localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_LEADERBOARD));
-        return [...DEFAULT_LEADERBOARD];
+        return this.cachedEntries;
       }
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.sort((a, b) => b.score - a.score) : [...DEFAULT_LEADERBOARD];
+      this.cachedEntries = Array.isArray(parsed) ? parsed.sort((a, b) => b.score - a.score) : [...DEFAULT_LEADERBOARD];
+      return this.cachedEntries;
     } catch (e) {
       console.warn("Error reading leaderboard:", e);
-      return [...DEFAULT_LEADERBOARD];
+      this.cachedEntries = [...DEFAULT_LEADERBOARD];
+      return this.cachedEntries;
     }
   }
 
@@ -202,11 +322,11 @@ export class LeaderboardManager {
       name: entryData.name || "Anonymous Challenger",
       department: entryData.department || "General Engineering",
       score: parseInt(entryData.score, 10) || 0,
-      maxScore: entryData.maxScore || 550,
+      maxScore: entryData.maxScore || 650,
       tier: entryData.tier || "B",
       tierTitle: entryData.tierTitle || "Contender",
       badgeClass: entryData.badgeClass || "tier-b",
-      roundScores: entryData.roundScores || { 1: 0, 2: 0, 3: 0, 4: 0 },
+      roundScores: entryData.roundScores || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       accuracy: entryData.accuracy || 0,
       date: dateStr,
       time: timeStr
@@ -223,6 +343,7 @@ export class LeaderboardManager {
     }
 
     entries.sort((a, b) => b.score - a.score);
+    this.cachedEntries = entries;
 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
@@ -230,15 +351,20 @@ export class LeaderboardManager {
       console.warn("Error saving leaderboard entry:", e);
     }
 
+    // Persist to MongoDB
+    dbApi.addLeaderboardEntry(newEntry).catch(() => {});
+
     return newEntry;
   }
 
   static resetLeaderboard() {
+    this.cachedEntries = [...DEFAULT_LEADERBOARD];
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_LEADERBOARD));
     } catch (e) {
       console.warn("Error resetting leaderboard:", e);
     }
+    dbApi.resetLeaderboard().catch(() => {});
     return [...DEFAULT_LEADERBOARD];
   }
 
@@ -451,3 +577,7 @@ export class LeaderboardManager {
     }
   }
 }
+
+// Automatically sync with database on load
+LeaderboardManager.init();
+

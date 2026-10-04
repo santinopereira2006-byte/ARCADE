@@ -127,7 +127,7 @@ export class RetroAudioEngine {
     if (!this.ctx) return;
 
     const t = this.ctx.currentTime;
-    
+
     // Primary Tone
     const osc1 = this.ctx.createOscillator();
     const gain1 = this.ctx.createGain();
@@ -401,14 +401,14 @@ export class RetroAudioEngine {
 
     const bpm = 124;
     const stepInterval = (60 / bpm) / 4 * 1000; // 16th notes ~120ms
-    
+
     // Cyberpunk synthwave bass progression (in A minor / F / G / E)
     // Notes in Hz: A1=55, C2=65.4, E2=82.4, F1=43.6, G1=49, D2=73.4
     const pattern = [
-      55, 55, 110, 55,  55, 110, 55, 110,  // A1
-      55, 55, 110, 55,  82.4, 73.4, 65.4, 55,
+      55, 55, 110, 55, 55, 110, 55, 110,  // A1
+      55, 55, 110, 55, 82.4, 73.4, 65.4, 55,
       43.6, 43.6, 87.3, 43.6, 43.6, 87.3, 43.6, 87.3, // F1
-      49, 49, 98, 49,   73.4, 65.4, 82.4, 98 // G1
+      49, 49, 98, 49, 73.4, 65.4, 82.4, 98 // G1
     ];
 
     this.bgmStep = 0;

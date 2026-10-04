@@ -4,6 +4,15 @@
 $port = 8080
 $folder = $PSScriptRoot
 
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+if ($nodeCmd -and (Test-Path "$PSScriptRoot\server.js")) {
+    Write-Host "==========================================================" -ForegroundColor Cyan
+    Write-Host "  Starting ARCADE with Node.js & MongoDB Database Support" -ForegroundColor Green
+    Write-Host "==========================================================" -ForegroundColor Cyan
+    & node "$PSScriptRoot\server.js"
+    exit
+}
+
 function Test-PortAvailable($p) {
     try {
         $tcp = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $p)

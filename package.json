@@ -1,0 +1,21 @@
+{
+  "name": "arcade-main",
+  "version": "1.0.0",
+  "description": "ARCADE is a browser based, five round technical competition game for the CSI Technical Symposium 2026. It includes participant check-in, an organizer console, scoring, results, and a leaderboard.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "bugs": {
+    "url": "https://github.com/Harixpadhiyar/Arcade-Main/issues"
+  },
+  "homepage": "https://github.com/Harixpadhiyar/Arcade-Main#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "mongoose": "^9.10.4"
+  }
+}
