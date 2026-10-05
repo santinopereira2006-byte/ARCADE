@@ -15,6 +15,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { CollisionWorld } from "./collision.js";
 import { addBaseLights, addCornerGlow, addNeonAccents } from "./lighting.js";
 import { RoomDecor } from "./decor.js";
+import { simplifyTree, mergeMeshesByMaterial, mergeStatic, textureIsOpaque } from "./optimize.js";
 import { LeaderboardManager } from "../leaderboard.js";
 import { state } from "../state.js";
 
@@ -24,8 +25,7 @@ const MACHINE_MODELS = [
   // `forward` = the model's authored screen-facing direction in XZ, measured
   // from yaw-sweep contact sheets (only the pixel rig names its screen node).
   { id: "pixel", url: "models/arcade_machine_-_pixel-art_low-poly/scene.gltf", forward: [0, 1] },
-  { id: "cabA", url: "models/arcade_machine/scene.gltf", forward: [-0.423, 0.906] },
-  { id: "cabB", url: "models/arcademachine%20(1)/scene.gltf", forward: [0, 1] }
+  { id: "cabA", url: "models/arcade_machine/scene.gltf", forward: [-0.423, 0.906] }
 ];
 
 const FIGHTER = {
@@ -39,7 +39,7 @@ const FIGHTER = {
 const ROOM_TARGET_SPAN = 34;   // longest horizontal side of the room, in metres (bigger arena)
 const WALL_INSET = 1.6;        // keep-away distance from the walls
 const CABINET_HEIGHT = 2.2;
-const WALK_SPEED = 3.2;
+const WALK_SPEED = 2.8;
 const RUN_SPEED = 7.0;
 const ACCEL_WALK = 26;
 const ACCEL_RUN = 34;
@@ -52,10 +52,22 @@ const INTERACT_DISTANCE = 3.2;
 const BASE_FOV = 58;           // vertical FOV at the reference aspect below
 const BASE_ASPECT = 16 / 9;
 
+// Dynamic resolution: the renderer starts at `start` and keeps the frame rate
+// smooth by trading resolution (never gameplay) between `min` and `max`.
+const RES_TIERS = {
+  low: { start: 0.85, min: 0.5, max: 1.0 },
+  medium: { start: 0.95, min: 0.6, max: 1.0 },
+  high: { start: 1.0, min: 0.7, max: 1.0 }
+};
+const FPS_CAP = 30;            // the game renders at most this many frames per second
+const TARGET_FPS = FPS_CAP;    // what "smooth" means for the adaptive resolution
+const MAX_PHYS_STEP = 1 / 50;  // longest single physics step (s); frames are split evenly
+
 const CABINETS = [
+  // The two cabinet models in /models, alternating around the ring.
   { round: 1, name: "SCALE WARS", color: 0x00e5ff, machine: 0 },
   { round: 2, name: "CTRL+ALT+GUESS", color: 0xff2bd6, machine: 1 },
-  { round: 3, name: "TECH MEME BATTLE", color: 0xa855f7, machine: 2 },
+  { round: 3, name: "TECH MEME BATTLE", color: 0xa855f7, machine: 0 },
   { round: 4, name: "BLACKOUT CODE", color: 0x39ff14, machine: 1 },
   { round: 5, name: "RETRO BLAST", color: 0xffe600, machine: 0 }
 ];
@@ -76,6 +88,7 @@ const _camLook = new THREE.Vector3();
 const _camWant = new THREE.Vector3();
 const _camTarget = new THREE.Vector3();
 const _deltaMove = new THREE.Vector3();
+const _sphere = new THREE.Sphere();
 
 /** Yaw that rotates `localDir` onto `desiredDir` (both XZ vectors). */
 function yawBetween(localDir, desiredDir) {
@@ -144,7 +157,16 @@ export class ArcadeRoom3D {
     const savedQuality = localStorage.getItem("arcade_quality");
     this.manualQuality = localStorage.getItem("arcade_manual_quality") === "true";
     this.quality = (this.manualQuality && savedQuality) ? savedQuality : "low";
-    this.resScale = this.quality === "low" ? 0.70 : (this.quality === "medium" ? 0.85 : 1.0);
+    this.resScale = (RES_TIERS[this.quality] || RES_TIERS.low).start;
+
+    // FPS counter (toggle with F) + frame pacing + adaptive resolution state
+    this.fpsEl = document.getElementById("room3dFps");
+    this.showFps = localStorage.getItem("arcade_show_fps") !== "false";
+    this._perf = { frames: 0, since: 0, lastText: "" };
+    this._pace = { samples: [], skip: 1, count: 0, detected: false, last: 0 };
+    this.resetAdaptive();
+    this._frustum = new THREE.Frustum();
+    this._pv = new THREE.Matrix4();
   }
 
   /**
@@ -162,6 +184,12 @@ export class ArcadeRoom3D {
     if (!this.canvas) throw new Error("room3dCanvas missing from index.html");
 
     if (this.loadingEl) this.loadingEl.classList.remove("hidden");
+
+    if (document.fonts && document.fonts.load) {
+      Promise.all(["900 32px Orbitron", "700 24px Orbitron", "700 16px 'JetBrains Mono'"].map(f => document.fonts.load(f)))
+        .then(() => this.refreshFontDependent())
+        .catch(() => { /* system fonts are fine */ });
+    }
 
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
@@ -213,6 +241,9 @@ export class ArcadeRoom3D {
     this.resize();
     requestAnimationFrame(() => this.resize());
     this.applyQuality(this.quality);
+    this.applyFpsVisibility();
+    this.primeScreens();
+    this.warmUp();
     this.ready = true;
     this.setProgress(1, "DIMENSIONAL BREACH ACHIEVED — ENTERING MECHA WORLD");
     if (this.loadingEl) {
@@ -235,6 +266,52 @@ export class ArcadeRoom3D {
 
   addLights() {
     this.baseLights = addBaseLights(this.scene);
+  }
+
+  /** Canvas textures bake their text at draw time: redo them once the game fonts are really loaded. */
+  refreshFontDependent() {
+    this._fontEpoch = (this._fontEpoch || 0) + 1;
+    this.cabinetSpots.forEach(spot => {
+      const label = spot.holder.userData.label;
+      const cfg = CABINETS.find(c => c.round === spot.round);
+      if (!label || !cfg) return;
+      const old = label.material.map;
+      label.material.map = this.makeLabelTexture(cfg, new THREE.Color(cfg.color));
+      label.material.needsUpdate = true;
+      if (old) old.dispose();
+    });
+  }
+
+  /** Paint every cabinet screen once so none is blank the first time it comes into view. */
+  primeScreens() {
+    const next = state.getNextAvailableRound();
+    this.cabinetSpots.forEach(spot => {
+      const screen = spot.holder.userData.pulse && spot.holder.userData.pulse.screen;
+      if (!screen) return;
+      this.drawAttractScreen(screen, 0, next);
+      screen.lastDraw = 0;
+      screen.sig = (state.isRoundCompleted(screen.round) ? "c" : "-") + (state.roundScores[screen.round] || 0) + "|" + next;
+    });
+  }
+
+  /**
+   * Compile every shader and upload every texture up front (including objects
+   * that are off-camera right now) so turning around never stalls a frame.
+   */
+  warmUp() {
+    try {
+      this.renderer.compile(this.scene, this.camera);
+      this.scene.traverse(node => {
+        const mats = Array.isArray(node.material) ? node.material : (node.material ? [node.material] : []);
+        mats.forEach(m => {
+          ["map", "emissiveMap", "alphaMap"].forEach(k => {
+            if (m[k] && m[k].isTexture) this.renderer.initTexture(m[k]);
+          });
+        });
+      });
+    } catch (err) {
+      console.warn("Shader warm-up skipped:", err);
+    }
   }
 
   addCornerGlow() {
@@ -283,11 +360,31 @@ export class ArcadeRoom3D {
       console.info("[collision] interior room wall boxes:", n);
     }
     this.cabinetSpots.forEach(spot => {
-      if (spot.holder) this.collision.addFromObject(spot.holder, "cabinet");
+      if (spot.holder) this.collision.addBox(this.cabinetColliderBox(spot.holder), "cabinet");
     });
     (this.scenerySolids || []).forEach(obj => this.collision.addFromObject(obj, "scenery"));
     if (this.decor) this.decor.solidBoxes.forEach(box => this.collision.addBox(box.clone(), "arena"));
     this.collision.buildDebug();
+  }
+
+  /**
+   * Collider of one round cabinet: its model, marquee and screen plus the neon ring on
+   * the floor in front (that footprint is what keeps players a comfortable step back).
+   * The soft glow quad around the ring is purely visual and must not grow the collider.
+   */
+  cabinetColliderBox(holder) {
+    holder.updateMatrixWorld(true);
+    const pulse = holder.userData.pulse;
+    const ring = pulse && pulse.ring;
+    const box = new THREE.Box3();
+    holder.children.forEach(child => { if (child !== ring) box.expandByObject(child); });
+    if (ring) {
+      const c = ring.getWorldPosition(new THREE.Vector3());
+      const R = CABINET_HEIGHT * 0.42;                 // outer radius of the original ring
+      box.expandByPoint(_v1.set(c.x - R, c.y, c.z - R));
+      box.expandByPoint(_v1.set(c.x + R, c.y, c.z + R));
+    }
+    return box;
   }
 
   // ------------------------------------------------------------------- scenery
@@ -410,29 +507,35 @@ export class ArcadeRoom3D {
     this.blobShadow = shadow;
   }
 
+  /**
+   * Make imported models cheap to draw:
+   *  - glass "transmission" is flattened on every tier (it makes three.js render
+   *    the whole scene a second time each frame),
+   *  - on Low every PBR material becomes plain Lambert (no specular / env / normal maps),
+   *  - alpha-blended materials whose texture is fully opaque are drawn opaque
+   *    (no blending, no sorting),
+   *  - mipmaps stay ON: they are faster to sample and stop textures shimmering.
+   */
   optimizeMaterials(root) {
     if (!root) return;
+    const low = this.quality === "low";
+    simplifyTree(root, { lambert: low });
     root.traverse(node => {
-      if (!node.isMesh) return;
+      if (!node.isMesh || !node.material) return;
       node.frustumCulled = true;
-      if (!node.material) return;
       const mats = Array.isArray(node.material) ? node.material : [node.material];
       mats.forEach(m => {
-        if (this.quality === "low") {
+        if (low) {
           m.envMap = null;
           m.normalMap = null;
           m.roughnessMap = null;
           m.metalnessMap = null;
-          if (m.roughness !== undefined) m.roughness = 0.9;
-          if (m.metalness !== undefined) m.metalness = 0.05;
+          ["map", "emissiveMap"].forEach(key => { if (m[key] && m[key].isTexture) m[key].anisotropy = 1; });
         }
-        ["map", "emissiveMap"].forEach(key => {
-          const tex = m[key];
-          if (tex && tex.isTexture) {
-            tex.generateMipmaps = this.quality !== "low";
-            tex.minFilter = this.quality === "low" ? THREE.LinearFilter : THREE.LinearMipmapLinearFilter;
-          }
-        });
+        if (m.transparent && m.opacity === 1 && m.map && !m.alphaMap && !m.alphaTest && textureIsOpaque(m.map)) {
+          m.transparent = false;
+          m.depthWrite = true;
+        }
       });
     });
   }
@@ -699,21 +802,18 @@ export class ArcadeRoom3D {
   }
 
   async loadCabinets() {
-    const isLow = this.quality === "low";
-    // On low graphics, load only the low-poly pixel machine prototype once and share it across cabinets
-    const modelsToLoad = isLow ? [MACHINE_MODELS[0]] : MACHINE_MODELS;
-    const loadedPrototypes = await Promise.all(modelsToLoad.map(async (cfg) => {
+    // Both cabinet models load on every quality tier; each prototype is loaded
+    // once and cloned (geometry and textures are shared) for every cabinet using it.
+    const loadedPrototypes = await Promise.all(MACHINE_MODELS.map(async (cfg) => {
       try {
         const gltf = await this.loadGltf(cfg.url);
-        return this.prepareMachinePrototype(gltf.scene, cfg);
+        return this.prepareMachinePrototype(this.slimMachine(gltf.scene), cfg);
       } catch (err) {
         console.warn("Cabinet model " + cfg.id + " failed, using neon stand-in:", err);
         return this.prepareMachinePrototype(this.buildFallbackCabinet(), cfg);
       }
     }));
-    const prototypes = isLow
-      ? [loadedPrototypes[0], loadedPrototypes[0], loadedPrototypes[0]]
-      : loadedPrototypes;
+    const prototypes = loadedPrototypes;
     this.machinePrototypes = prototypes;
 
     const ringX = Math.min(CABINET_RING, this.bounds.x - 1.2);
@@ -753,6 +853,23 @@ export class ArcadeRoom3D {
         holder
       });
     });
+  }
+
+  /**
+   * Arcade cabinet models ship as ~12 separate meshes (body, glare, 8 button
+   * decals, ...). Flatten their materials and merge them to one mesh per
+   * material, so each of the 9 cabinets costs ~4 draw calls instead of ~12.
+   * Falls back to the untouched model if it cannot be merged safely.
+   */
+  slimMachine(scene) {
+    try {
+      this.optimizeMaterials(scene);
+      const merged = mergeMeshesByMaterial(scene);
+      if (merged) return merged;
+    } catch (err) {
+      console.warn("Cabinet merge skipped:", err);
+    }
+    return scene;
   }
 
   /** Scales, measures and finds the screen-facing direction of one machine model. */
@@ -824,6 +941,7 @@ export class ArcadeRoom3D {
     label.position.set(fwd.x * 0.05, CABINET_HEIGHT + 0.42, fwd.z * 0.05);
     label.rotation.y = yawBetween(new THREE.Vector3(0, 0, 1), fwd);
     holder.add(label);
+    holder.userData.label = label;
 
     // Animated attract-mode screen floating on the cabinet's front face
     const screen = this.makeAttractScreen(cfg, color);
@@ -831,10 +949,14 @@ export class ArcadeRoom3D {
     screen.mesh.rotation.y = label.rotation.y;
     holder.add(screen.mesh);
 
-    // Neon halo on the floor in front of the cabinet
+    // Neon halo on the floor in front of the cabinet: a glowing ring with a soft
+    // light pool around it. One textured quad (shared texture + geometry) fakes
+    // the pool of light a real PointLight would cast, at no per-pixel lighting cost.
+    if (!this._haloTex) this._haloTex = this.makeHaloTexture();
+    if (!this._haloGeo) this._haloGeo = new THREE.PlaneGeometry(CABINET_HEIGHT * 1.55, CABINET_HEIGHT * 1.55);
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(CABINET_HEIGHT * 0.34, CABINET_HEIGHT * 0.42, 40),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.75, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+      this._haloGeo,
+      new THREE.MeshBasicMaterial({ color, map: this._haloTex, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false })
     );
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(fwd.x * (CABINET_HEIGHT * 0.55), 0.03, fwd.z * (CABINET_HEIGHT * 0.55));
@@ -850,6 +972,22 @@ export class ArcadeRoom3D {
     holder.userData.pulse = { ring, light, base: 5.5, phase: cfg.round * 0.7, screen };
   }
 
+  /** White ring + soft radial glow; tinted per cabinet by the material colour. */
+  makeHaloTexture() {
+    const S = 128;
+    const c = document.createElement("canvas");
+    c.width = c.height = S;
+    const ctx = c.getContext("2d");
+    const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    [[0, 0.1], [0.3, 0.14], [0.42, 0.3], [0.455, 0.95], [0.49, 1], [0.525, 0.95], [0.56, 0.35], [0.7, 0.14], [1, 0]]
+      .forEach(([stop, a]) => g.addColorStop(stop, `rgba(255,255,255,${a})`));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, S, S);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
   /** Canvas-textured plane that plays a looping attract-mode animation per round. */
   makeAttractScreen(cfg, color) {
     const c = document.createElement("canvas");
@@ -858,52 +996,43 @@ export class ArcadeRoom3D {
     const ctx = c.getContext("2d");
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.generateMipmaps = false;               // redrawn live: skip mip generation on every upload
+    tex.minFilter = THREE.LinearFilter;
     const mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(CABINET_HEIGHT * 0.52, CABINET_HEIGHT * 0.39),
       new THREE.MeshBasicMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
     );
-    return { mesh, ctx, tex, color, hex: "#" + color.getHexString(), phase: cfg.round * 1.3, round: cfg.round, name: cfg.name };
+    // Static layer (titles / status text) is cached on its own canvas and only
+    // re-rendered when the round state changes; the live canvas just blits it.
+    const layer = document.createElement("canvas");
+    layer.width = c.width;
+    layer.height = c.height;
+    return {
+      mesh, ctx, tex, color, hex: "#" + color.getHexString(), phase: cfg.round * 1.3, round: cfg.round, name: cfg.name,
+      layer, layerCtx: layer.getContext("2d"), layerKey: "", lastDraw: -1
+    };
   }
 
-  drawAttractScreen(s, t) {
-    const { ctx } = s;
+  /** Round status of one cabinet screen: drives colours, text and the cache key. */
+  screenStatus(s, nextRound = state.getNextAvailableRound()) {
+    const isCompleted = state.isRoundCompleted(s.round);
+    const isNext = !isCompleted && s.round === nextRound;
+    const isLocked = !isCompleted && s.round > nextRound;
+    return {
+      isCompleted, isNext, isLocked, nextRound,
+      score: state.roundScores[s.round] || 0,
+      hex: isCompleted ? "#10b981" : (isLocked ? "#475569" : s.hex)
+    };
+  }
+
+  /** Static text layer of a cabinet screen. Rebuilt only when the round status (or the game font) changes. */
+  buildScreenLayer(s, st) {
+    const ctx = s.layerCtx;
     const w = ctx.canvas.width;
     const h = ctx.canvas.height;
     ctx.clearRect(0, 0, w, h);
-
-    const isCompleted = state.isRoundCompleted(s.round);
-    const nextRound = state.getNextAvailableRound();
-    const isNext = s.round === nextRound;
-    const isLocked = s.round > nextRound;
-    const roundScore = state.roundScores[s.round] || 0;
-
-    const hex = isCompleted ? "#10b981" : (isLocked ? "#475569" : s.hex);
-
-    ctx.fillStyle = isCompleted ? "rgba(2,16,10,0.92)" : (isLocked ? "rgba(10,12,18,0.92)" : "rgba(2,4,12,0.9)");
-    ctx.fillRect(0, 0, w, h);
-
-    if (!isLocked) {
-      // Equalizer bars
-      for (let i = 0; i < 12; i++) {
-        const bh = (0.25 + 0.75 * Math.abs(Math.sin(t * 2.2 + i * 0.7 + s.phase))) * h * 0.34;
-        ctx.fillStyle = hex;
-        ctx.globalAlpha = isCompleted ? 0.35 : 0.55;
-        ctx.fillRect(8 + i * 20, h - 14 - bh, 12, bh);
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    // Scanline sweep
-    const sy = (t * 60 + s.phase * 40) % h;
-    const grad = ctx.createLinearGradient(0, sy - 18, 0, sy + 18);
-    grad.addColorStop(0, "rgba(255,255,255,0)");
-    grad.addColorStop(0.5, isCompleted ? "rgba(16,185,129,0.25)" : (isLocked ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.35)"));
-    grad.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, sy - 18, w, 36);
-
     ctx.textAlign = "center";
-    ctx.fillStyle = hex;
+    ctx.fillStyle = st.hex;
     ctx.font = "900 32px Orbitron, 'Segoe UI', sans-serif";
     ctx.fillText("ROUND " + s.round, w / 2, 46);
 
@@ -916,35 +1045,104 @@ export class ArcadeRoom3D {
     }
     ctx.fillText(s.name, w / 2, 80);
 
-    if (isCompleted) {
+    if (st.isCompleted) {
       ctx.fillStyle = "#10b981";
       ctx.font = "900 18px Orbitron, 'Segoe UI', sans-serif";
       ctx.fillText("✓ CLEARED", w / 2, 122);
       ctx.fillStyle = "#ffe600";
       ctx.font = "700 16px 'JetBrains Mono', monospace";
-      ctx.fillText(`SCORE: ${roundScore} PTS`, w / 2, 150);
+      ctx.fillText(`SCORE: ${st.score} PTS`, w / 2, 150);
       ctx.fillStyle = "rgba(255,255,255,0.6)";
       ctx.font = "600 13px 'Rajdhani', sans-serif";
       ctx.fillText("[COMPLETED]", w / 2, h - 14);
-    } else if (isNext) {
+    } else if (st.isNext) {
       ctx.fillStyle = "#ffe600";
       ctx.font = "700 17px Orbitron, 'Segoe UI', sans-serif";
       ctx.fillText("★ NEXT MISSION ★", w / 2, 120);
-      ctx.fillStyle = hex;
-      ctx.font = "700 18px Orbitron, 'Segoe UI', sans-serif";
-      ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 4 + s.phase);
-      ctx.fillText("PRESS E TO PLAY", w / 2, h - 24);
-      ctx.globalAlpha = 1;
     } else {
       ctx.fillStyle = "#ef4444";
       ctx.font = "700 17px Orbitron, 'Segoe UI', sans-serif";
       ctx.fillText("🔒 LOCKED", w / 2, 122);
       ctx.fillStyle = "#94a3b8";
       ctx.font = "600 14px 'Rajdhani', sans-serif";
-      ctx.fillText(`CLEAR ROUND ${nextRound} FIRST`, w / 2, 150);
+      ctx.fillText(`CLEAR ROUND ${st.nextRound} FIRST`, w / 2, 150);
+    }
+  }
+
+  drawAttractScreen(s, t, nextRound) {
+    const { ctx } = s;
+    const w = ctx.canvas.width;
+    const h = ctx.canvas.height;
+    const st = this.screenStatus(s, nextRound);
+    const key = `${st.isCompleted ? "c" : st.isNext ? "n" : "l"}|${st.score}|${st.nextRound}|${this._fontEpoch || 0}`;
+    if (key !== s.layerKey) {
+      s.layerKey = key;
+      this.buildScreenLayer(s, st);
+    }
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = st.isCompleted ? "rgba(2,16,10,0.92)" : (st.isLocked ? "rgba(10,12,18,0.92)" : "rgba(2,4,12,0.9)");
+    ctx.fillRect(0, 0, w, h);
+
+    if (!st.isLocked) {
+      // Equalizer bars
+      ctx.fillStyle = st.hex;
+      ctx.globalAlpha = st.isCompleted ? 0.35 : 0.55;
+      for (let i = 0; i < 12; i++) {
+        const bh = (0.25 + 0.75 * Math.abs(Math.sin(t * 2.2 + i * 0.7 + s.phase))) * h * 0.34;
+        ctx.fillRect(8 + i * 20, h - 14 - bh, 12, bh);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Scanline sweep
+    const sy = (t * 60 + s.phase * 40) % h;
+    const grad = ctx.createLinearGradient(0, sy - 18, 0, sy + 18);
+    grad.addColorStop(0, "rgba(255,255,255,0)");
+    grad.addColorStop(0.5, st.isCompleted ? "rgba(16,185,129,0.25)" : (st.isLocked ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.35)"));
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, sy - 18, w, 36);
+
+    ctx.drawImage(s.layer, 0, 0);
+
+    if (st.isNext) {
+      ctx.textAlign = "center";
+      ctx.fillStyle = st.hex;
+      ctx.font = "700 18px Orbitron, 'Segoe UI', sans-serif";
+      ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 4 + s.phase);
+      ctx.fillText("PRESS E TO PLAY", w / 2, h - 24);
+      ctx.globalAlpha = 1;
     }
 
     s.tex.needsUpdate = true;
+  }
+
+  /**
+   * Redraw the cabinet screens: at most ONE per frame (so a frame never pays for
+   * all five at once), ~12 times a second each, and only the ones on camera.
+   * A change in round status forces an immediate redraw.
+   */
+  updateScreens(t, nextRound) {
+    const spots = this.cabinetSpots;
+    const n = spots.length;
+    if (!n) return;
+    this._pv.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
+    this._frustum.setFromProjectionMatrix(this._pv);
+    for (let k = 0; k < n; k++) {
+      const idx = ((this._screenCursor || 0) + k) % n;
+      const spot = spots[idx];
+      const screen = spot.holder.userData.pulse && spot.holder.userData.pulse.screen;
+      if (!screen) continue;
+      if (!this._frustum.intersectsSphere(_sphere.set(_v1.set(spot.position.x, CABINET_HEIGHT * 0.6, spot.position.z), CABINET_HEIGHT))) continue;
+      const sig = (state.isRoundCompleted(screen.round) ? "c" : "-") + (state.roundScores[screen.round] || 0) + "|" + nextRound;
+      if (screen.lastDraw >= 0 && sig === screen.sig && t - screen.lastDraw <= 1 / 12) continue;
+      this.drawAttractScreen(screen, t, nextRound);
+      screen.lastDraw = t;
+      screen.sig = sig;
+      this._screenCursor = idx + 1;
+      return;
+    }
   }
 
   makeLabelTexture(cfg, color) {
@@ -1076,6 +1274,13 @@ export class ArcadeRoom3D {
     const posedBox = this.measureCharacter(model);
     const currentHeight = useSkinned ? bindSize.y : posedBox.getSize(new THREE.Vector3()).y;
     model.scale.multiplyScalar(this.charHeight / (currentHeight || 1));
+    // The stride speed was measured BEFORE the rig was scaled to the character's
+    // height; without this the legs cycle far too slowly for the ground speed and
+    // the player glides ("floats") instead of stepping.
+    if (this.walkCycleSpeed && this._probeScale) {
+      model.updateMatrixWorld(true);
+      this.walkCycleSpeed *= (model.getWorldScale(new THREE.Vector3()).x || this._probeScale) / this._probeScale;
+    }
 
     const posed = this.measureCharacter(model);
     const skinnedBox = new THREE.Box3().setFromObject(model);
@@ -1099,7 +1304,53 @@ export class ArcadeRoom3D {
 
     this.forwardOffsetDir = this.detectModelForward(model, clipForward);
     this.forwardAlpha = Math.atan2(this.forwardOffsetDir.x, -this.forwardOffsetDir.z);
+    this.measureActionFootLift(model);
     this.mixer.update(0);
+  }
+
+  /**
+   * The rig is grounded in its idle pose, but the walk / crouch clips carry a
+   * different hip height (their root-height track is stripped because the
+   * controller owns movement). Played as-is, the whole body hovers ~0.25 m above
+   * the floor while moving. Here we find how high each clip's lowest foot sits
+   * relative to idle, so updateAnimation can drop the model by exactly that.
+   */
+  measureActionFootLift(model) {
+    this.actionLift = { walk: 0, crouch: 0 };
+    try {
+      const feet = [];
+      model.traverse(n => { if (n.isBone && /foot|ankle|toe/i.test(n.name || "")) feet.push(n); });
+      const actions = { idle: this.idleAction, walk: this.walkAction, crouch: this.crouchAction };
+      if (!feet.length || !actions.idle) return;
+      const saved = {};
+      Object.entries(actions).forEach(([k, a]) => { if (a) { saved[k] = a.time; a.setEffectiveWeight(0); } });
+      const v = new THREE.Vector3();
+      const lowestFoot = (name) => {
+        const a = actions[name];
+        if (!a) return null;
+        a.setEffectiveWeight(1);
+        const dur = a.getClip().duration || 0;
+        const n = dur > 0 ? 24 : 1;
+        let low = Infinity;
+        for (let i = 0; i < n; i++) {
+          a.time = dur * i / n;
+          this.mixer.update(0);
+          model.updateMatrixWorld(true);
+          feet.forEach(f => { low = Math.min(low, f.getWorldPosition(v).y); });
+        }
+        a.setEffectiveWeight(0);
+        return low;
+      };
+      const idle = lowestFoot("idle");
+      const walk = lowestFoot("walk");
+      const crouch = lowestFoot("crouch");
+      if (walk !== null && Number.isFinite(walk)) this.actionLift.walk = walk - idle;
+      if (crouch !== null && Number.isFinite(crouch)) this.actionLift.crouch = crouch - idle;
+      Object.entries(actions).forEach(([k, a]) => { if (a) a.time = saved[k] || 0; });
+      if (this.idleAction) this.idleAction.setEffectiveWeight(1);
+    } catch (err) {
+      console.warn("Foot-height probe skipped:", err);
+    }
   }
 
   /** World-space box of a rigged model, from its posed bones (geometry box as fallback). */
@@ -1126,6 +1377,7 @@ export class ArcadeRoom3D {
       if (!bones.length) return null;
       // The clip must actually be playing or mixer updates apply nothing.
       const act = this.mixer.clipAction(walkClip);
+      this._probeScale = model.getWorldScale(new THREE.Vector3()).x || 1;   // stride is measured at this scale
       act.reset();
       act.setEffectiveWeight(1);
       act.play();
@@ -1366,17 +1618,26 @@ export class ArcadeRoom3D {
     const tailPivot = new THREE.Group();
     (tail || model).add(tailPivot);
     const segMat = new THREE.MeshStandardMaterial({ color: 0x1de08a, roughness: 0.45, metalness: 0.5, emissive: 0x0a4d2e, emissiveIntensity: 0.5 });
-    let cx = 0, cy = 0, cz = 0, ang = 0, r = 0.05;
+    let cx = 0, cy = 0, cz = 0, ang = 0;
+    const tailParts = [];
     for (let i = 0; i < 14; i++) {
-      const seg = new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.012, 0.05 - i * 0.003), 8, 8), segMat);
-      seg.position.set(cx, cy, cz);
-      tailPivot.add(seg);
+      tailParts.push({
+        geo: new THREE.SphereGeometry(Math.max(0.012, 0.05 - i * 0.003), 8, 6),
+        matrix: new THREE.Matrix4().makeTranslation(cx, cy, cz)
+      });
       ang += 0.5;
-      r = Math.max(0.02, 0.05 - i * 0.002);
       cx -= Math.sin(ang) * 0.05;
       cz -= Math.cos(ang) * 0.05 * (i < 5 ? 1 : 0.4);
       cy += i > 6 ? 0.02 : 0;
     }
+    // One draw call for the whole curled tail instead of fourteen.
+    const tailMesh = mergeStatic(tailParts, segMat, "tail");
+    if (tailMesh) tailPivot.add(tailMesh);
+    else tailParts.forEach(({ geo, matrix }) => {
+      const seg = new THREE.Mesh(geo, segMat);
+      seg.position.setFromMatrixPosition(matrix);
+      tailPivot.add(seg);
+    });
     tailPivot.position.set(0, 0.35, -0.25);
     this.charExtras.tailPivot = tailPivot;
 
@@ -1492,17 +1753,11 @@ export class ArcadeRoom3D {
     this.resize();
     requestAnimationFrame(() => this.resize());
 
-    let lastFrameTime = performance.now();
-    const frameInterval = 1000 / 60; // 60 FPS frame rate cap
-
-    this.renderer.setAnimationLoop(() => {
-      if (this.tabHidden || document.hidden) return;
-      const now = performance.now();
-      const elapsed = now - lastFrameTime;
-      if (elapsed < frameInterval - 1) return;
-      lastFrameTime = now - (elapsed % frameInterval);
-      this.tick();
-    });
+    // Fresh pacing / measurement state on every entry (the display may differ).
+    this._pace = { samples: [], skip: 1, count: 0, detected: false, last: 0, hz: 60, pausedAt: 0 };
+    this._perf = { frames: 0, sum: 0, since: 0, lastTime: 0, lastText: "", fps: 0, ms: 0 };
+    this.resetAdaptive();
+    this.renderer.setAnimationLoop((time) => this.frame(time));
     if (this.canvas) this.canvas.focus();
     return true;
   }
@@ -1608,6 +1863,11 @@ export class ArcadeRoom3D {
       }
       if (e.code === "ControlLeft" || e.code === "ControlRight") {
         this.crouching = true;
+        return;
+      }
+      if (e.code === "KeyF" && !e.repeat) {
+        e.preventDefault();
+        this.toggleFps();
         return;
       }
       if (e.code === "F3" && !e.repeat) {
@@ -1763,6 +2023,191 @@ export class ArcadeRoom3D {
     return Math.min(90, fov);
   }
 
+  // ------------------------------------------------------------ pacing + metrics
+
+  /**
+   * One display-refresh callback. Paces the loop to the FPS cap by rendering
+   * every Nth display refresh (60 Hz -> every 2nd = an even 33 ms, 120 Hz -> every
+   * 4th), so frame times stay perfectly even instead of a timer beating against
+   * the monitor. Runs the tick and feeds the FPS counter / adaptive resolution.
+   */
+  frame(time) {
+    const pace = this._pace;
+    if (this.tabHidden || document.hidden) { pace.last = 0; this._perf.lastTime = 0; return; }
+
+    if (this.paused) {                       // menu open: the scene is frozen, so redraw rarely
+      if (time - pace.pausedAt < 200) return;
+      pace.pausedAt = time;
+      this._perf.lastTime = 0;
+      this.tick();
+      return;
+    }
+
+    // Learn the refresh rate from the first callbacks (median, so one hitch can't skew it).
+    if (!pace.detected) {
+      if (pace.last) pace.samples.push(time - pace.last);
+      pace.last = time;
+      if (pace.samples.length >= 40) {
+        const sorted = pace.samples.slice().sort((a, b) => a - b);
+        pace.hz = 1000 / Math.max(1, sorted[sorted.length >> 1]);
+        pace.skip = Math.max(1, Math.ceil(pace.hz / FPS_CAP - 0.1));
+        pace.detected = true;
+      }
+    }
+    if (++pace.count < pace.skip) return;
+    pace.count = 0;
+
+    this.tick();
+    this.measureFrame(time);
+  }
+
+  /** The frame rate we are trying to hold: the cap, or the display rate when that is lower. */
+  targetFps() {
+    const { hz, skip } = this._pace;
+    return Math.min(TARGET_FPS, hz / skip);
+  }
+
+  /** Counts rendered frames from the rAF timestamps; updates the FPS readout twice a second. */
+  measureFrame(time) {
+    const perf = this._perf;
+    if (perf.lastTime) {
+      const d = time - perf.lastTime;
+      if (d < 500) { perf.frames++; perf.sum += d; }   // ignore stalls (tab switch, debugger)
+    }
+    perf.lastTime = time;
+    if (!perf.since) { perf.since = time; return; }
+    const span = time - perf.since;
+    if (span < 500) return;
+    if (perf.frames >= 3) {
+      perf.fps = (perf.frames * 1000) / perf.sum;
+      perf.ms = perf.sum / perf.frames;
+      this.updateFpsCounter();
+      this.adaptResolution(perf.fps, time);
+    }
+    perf.frames = 0;
+    perf.sum = 0;
+    perf.since = time;
+  }
+
+  ensureFpsElement() {
+    if (this.fpsEl) return this.fpsEl;
+    const stage = (this.canvas && this.canvas.parentElement) || document.body;
+    const el = document.createElement("div");
+    el.id = "room3dFps";
+    el.className = "room3d-fps";
+    el.setAttribute("aria-hidden", "true");
+    el.title = "Frames per second — press F to hide / show";
+    el.innerHTML = '<span class="room3d-fps-val">--</span><span class="room3d-fps-unit">FPS</span>' +
+      '<span class="room3d-fps-ms"></span><span class="room3d-fps-res"></span>';
+    stage.appendChild(el);
+    this.fpsEl = el;
+    return el;
+  }
+
+  applyFpsVisibility() {
+    const el = this.ensureFpsElement();
+    el.hidden = !this.showFps;
+    this._perf.lastText = "";
+  }
+
+  toggleFps(force) {
+    this.showFps = force === undefined ? !this.showFps : force;
+    try { localStorage.setItem("arcade_show_fps", String(this.showFps)); } catch (_) { /* private mode */ }
+    this.applyFpsVisibility();
+    this.showToast(`FPS counter ${this.showFps ? "ON" : "OFF"}  (F)`, "info");
+  }
+
+  updateFpsCounter() {
+    if (!this.showFps) return;
+    const el = this.ensureFpsElement();
+    const { fps, ms } = this._perf;
+    const target = this.targetFps();
+    const tier = fps >= target * 0.9 ? "good" : (fps >= target * 0.6 ? "ok" : "bad");
+    const res = this.resScale < 0.995 ? Math.round(this.resScale * 100) + "% RES" : "";
+    const text = `${Math.round(fps)}|${ms.toFixed(1)}|${res}|${tier}`;
+    if (text === this._perf.lastText) return;
+    this._perf.lastText = text;
+    el.dataset.tier = tier;
+    const kids = el.children;
+    kids[0].textContent = String(Math.round(fps));
+    kids[2].textContent = ms.toFixed(1) + " ms";
+    kids[3].textContent = res;
+  }
+
+  // ------------------------------------------------------ adaptive resolution
+
+  resetAdaptive(now = performance.now()) {
+    this._drs = {
+      lagWins: 0,            // consecutive slow half-second windows
+      goodWins: 0,           // consecutive on-target windows (probe for a higher resolution)
+      needGood: 10,          // on-target windows required before probing higher (backs off after a failed probe)
+      lastClimb: -1e9,
+      cooldownUntil: now + 2500,   // ignore the first seconds: shader/texture warm-up hitches
+      prevFps: 0, prevScale: 0, noGain: 0
+    };
+  }
+
+  /**
+   * Keeps the game smooth on weak GPUs: if the frame rate sags, lower the render
+   * resolution a step (the picture softens a little, the game never stutters).
+   * With clear stability it probes back up one small step at a time, and backs off
+   * (probes less often) whenever a probe fails. If lowering the resolution does
+   * not help (the machine is CPU-bound), it restores the picture and stops trying.
+   * Called twice a second with the measured fps.
+   */
+  adaptResolution(fps, now) {
+    const drs = this._drs;
+    const tier = RES_TIERS[this.quality] || RES_TIERS.low;
+    if (drs.off || !this.active || this.paused || now < drs.cooldownUntil) return;
+    const target = this.targetFps();
+
+    if (fps < target * 0.9) {
+      drs.goodWins = 0;
+      // Did the previous reduction actually buy any speed?
+      if (drs.prevScale) {
+        drs.noGain = fps < drs.prevFps * 1.05 ? drs.noGain + 1 : 0;
+        drs.prevFps = fps;
+        if (drs.noGain >= 2) {                     // resolution is not the bottleneck: undo and stop
+          const back = Math.min(tier.max, drs.prevScale);
+          drs.prevScale = 0; drs.noGain = 0; drs.lagWins = 0;
+          drs.off = true;                          // stay put until the quality setting changes
+          this.setResolutionScale(back);
+          return;
+        }
+      }
+      drs.lagWins++;
+      if (drs.lagWins >= 2 || fps < target * 0.6) {
+        const step = fps < target * 0.6 ? 0.15 : 0.1;
+        const next = Math.max(tier.min, Math.round((this.resScale - step) * 100) / 100);
+        drs.lagWins = 0;
+        if (next < this.resScale) {
+          if (now - drs.lastClimb < 15000) drs.needGood = Math.min(120, drs.needGood * 2);   // last probe did not hold
+          if (!drs.prevScale) { drs.prevScale = this.resScale; drs.prevFps = fps; drs.noGain = 0; }
+          drs.cooldownUntil = now + 1500;
+          this.setResolutionScale(next);
+        }
+      }
+      return;
+    }
+
+    drs.lagWins = 0;
+    drs.prevScale = 0;                             // we are on target again: the reduction worked
+    drs.goodWins = fps >= target * 0.95 ? drs.goodWins + 1 : 0;
+    if (drs.goodWins >= drs.needGood && this.resScale < tier.max - 0.001) {
+      drs.goodWins = 0;
+      drs.lastClimb = now;
+      drs.cooldownUntil = now + 1500;
+      this.setResolutionScale(Math.min(tier.max, Math.round((this.resScale + 0.05) * 100) / 100));
+    }
+  }
+
+  setResolutionScale(scale) {
+    if (Math.abs(scale - this.resScale) < 0.001) return;
+    this.resScale = scale;
+    this.resize();
+    this._perf.lastText = "";
+  }
+
   // ------------------------------------------------------------------- per-frame
 
   tick() {
@@ -1772,33 +2217,12 @@ export class ArcadeRoom3D {
       return;
     }
 
-    // FPS tracking for diagnostics
-    const now = performance.now();
-    if (!this._fpsTime) {
-      this._fpsTime = now;
-      this._fpsFrames = 0;
-    }
-    this._fpsFrames++;
-    if (now - this._fpsTime >= 1000) {
-      const currentFps = (this._fpsFrames * 1000) / (now - this._fpsTime);
-      this._currentFps = Math.round(currentFps);
-      this._fpsTime = now;
-      this._fpsFrames = 0;
-    }
-
-    // Fixed-timestep physics so movement is identical at any frame rate; the
-    // camera is updated once afterwards from the settled position (no jitter).
-    // On Low quality, physFixedHz is 60 (half the default 120) to save CPU.
-    const fixedHz = this._physFixedHz || 60;
-    const FIXED = 1 / fixedHz;
-    this._physAcc = (this._physAcc || 0) + dt;
-    let guard = 0;
-    while (this._physAcc >= FIXED && guard < 8) {
-      this.updateMovement(FIXED);
-      this._physAcc -= FIXED;
-      guard++;
-    }
-    if (guard >= 8) this._physAcc = 0;
+    // Split the frame into equal physics steps (never a fixed 60 Hz accumulator):
+    // every frame then advances by exactly its own dt, so motion stays smooth at
+    // 50, 60, 75 or 144 fps with no leftover time to cause judder.
+    const steps = Math.max(1, Math.ceil(dt / MAX_PHYS_STEP - 1e-6));
+    const stepDt = dt / steps;
+    for (let i = 0; i < steps; i++) this.updateMovement(stepDt);
 
     if (this.blobShadow && this.character) {
       this.blobShadow.position.x = this.character.position.x;
@@ -1963,7 +2387,10 @@ export class ArcadeRoom3D {
     const blend = Math.min(1, dt * 12);
     if (this.walkAction) {
       this.walkAction.setEffectiveWeight(this.walkAction.getEffectiveWeight() + (w.walk - this.walkAction.getEffectiveWeight()) * blend);
-      const cycle = this.walkCycleSpeed ? THREE.MathUtils.clamp(speed / this.walkCycleSpeed, 0.4, 3.2) : 1;
+      // Play the stride fast enough to roughly plant the feet: a small rig covering
+      // 3+ m/s needs a quick shuffle, so the cap is generous (and a little higher at a sprint).
+      const maxCycle = Math.min(4.6, 3.7 + Math.max(0, speed - 3) * 0.3);
+      const cycle = this.walkCycleSpeed ? THREE.MathUtils.clamp(speed / this.walkCycleSpeed * 0.85, 0.5, maxCycle) : 1;
       this.walkAction.timeScale = cycle * (state === "crouchwalk" ? 0.6 : 1);
     }
     if (this.idleAction) {
@@ -1982,12 +2409,23 @@ export class ArcadeRoom3D {
 
     // Rigs without clips get procedural locomotion: stride bob while moving,
     // breathing bob while standing.
-    if (this.model && (!this.walkAction || !moving)) {
+    if (this.model) {
       const t = performance.now() / 1000;
-      const bob = moving && !this.walkAction
+      const bob = !this.walkAction && moving
         ? Math.abs(Math.sin(t * 9)) * 0.05 * Math.min(1, speed / WALK_SPEED)
-        : Math.sin(t * 2.1) * 0.012;
-      this.model.position.y = this.modelBaseY + bob;
+        : (this.walkAction && moving ? 0 : Math.sin(t * 2.1) * 0.012);
+      // Keep the feet on the floor: remove the extra hip height of whichever
+      // clips are blended in (see measureActionFootLift).
+      let lift = 0;
+      const lifts = this.actionLift;
+      if (lifts) {
+        const ww = this.walkAction ? this.walkAction.getEffectiveWeight() : 0;
+        const cw = this.crouchAction ? this.crouchAction.getEffectiveWeight() : 0;
+        const iw = this.idleAction ? this.idleAction.getEffectiveWeight() : 0;
+        const total = ww + cw + iw;
+        if (total > 0.001) lift = (ww * lifts.walk + cw * lifts.crouch) / Math.max(1, total);
+      }
+      this.model.position.y = this.modelBaseY - lift + bob;
     }
     if (this.model && moving && !this.walkAction && dt) {
       this.model.rotation.y = Math.sin(performance.now() / 1000 * 9) * 0.06;
@@ -2014,7 +2452,7 @@ export class ArcadeRoom3D {
     _camLook.copy(this.character.position).addScaledVector(this.velocity, 0.3);
     const headY = this.character.position.y + this.charHeight * 0.82;
     _v1.set(_camLook.x, headY, _camLook.z);
-    let dist = (aim ? 4.6 : 6.1) + speed * 0.42;
+    let dist = (aim ? 4.6 : 6.1) + speed * 0.3;
     // Pull the camera in when a wall sits between it and the player.
     if (this.collision) {
       _v2.set(
@@ -2036,13 +2474,13 @@ export class ArcadeRoom3D {
     _camTarget.z = THREE.MathUtils.clamp(_camTarget.z, -mz, mz);
 
     // Critically-damped spring follow
-    this.camera.position.lerp(_camTarget, 1 - Math.exp(-7.5 * dt));
+    this.camera.position.lerp(_camTarget, 1 - Math.exp(-10 * dt));
     this.camera.position.x = THREE.MathUtils.clamp(this.camera.position.x, -mx, mx);
     this.camera.position.z = THREE.MathUtils.clamp(this.camera.position.z, -mz, mz);
 
     if (!this._lookAt) this._lookAt = this.character.position.clone();
     _camWant.set(_camLook.x, this.character.position.y + this.charHeight * 0.82, _camLook.z);
-    this._lookAt.lerp(_camWant, 1 - Math.exp(-9 * dt));
+    this._lookAt.lerp(_camWant, 1 - Math.exp(-13 * dt));
     this.camera.lookAt(this._lookAt);
 
     // Sprint FOV kick, tightened while aiming
@@ -2119,14 +2557,12 @@ export class ArcadeRoom3D {
   updateAmbience(dt) {
     const t = performance.now() / 1000;
     if (this.filmPass) this.filmPass.uniforms.uTime.value = t;
-    this._screenTick = (this._screenTick || 0) + dt;
-    const redrawScreens = this._screenTick > 1 / 15;
-    if (redrawScreens) this._screenTick = 0;
+    const nextRound = state.getNextAvailableRound();   // once per frame, not once per cabinet
 
     if (this.glowParts) {
+      const camoGain = 0.3 + 0.7 * this.camo;
       this.glowParts.forEach(g => {
-        g.mat.emissiveIntensity =
-          g.base * (0.8 + 0.3 * Math.sin(t * 3.1 + g.phase)) * (0.3 + 0.7 * this.camo);
+        g.mat.emissiveIntensity = g.base * (0.8 + 0.3 * Math.sin(t * 3.1 + g.phase)) * camoGain;
       });
     }
 
@@ -2134,32 +2570,35 @@ export class ArcadeRoom3D {
       const pulse = spot.holder.userData.pulse;
       if (!pulse) return;
       const isCompleted = state.isRoundCompleted(spot.round);
-      const nextRound = state.getNextAvailableRound();
       const isNext = spot.round === nextRound;
-      const isLocked = spot.round > nextRound;
-
-      const glow = 0.55 + Math.sin(t * 2 + pulse.phase) * 0.2;
+      const isNear = spot === this.nearest;
       const activePulse = 0.8 + Math.sin(t * 3.5 + pulse.phase) * 0.4;
+      const lit = pulse.light.visible;   // lights are off on Low: don't animate what isn't drawn
 
       if (isCompleted) {
-        pulse.ring.material.opacity = spot === this.nearest ? 0.95 : 0.45;
-        pulse.light.intensity = pulse.base * (spot === this.nearest ? 1.4 : 0.6);
-        pulse.light.color.setHex(0x10b981);
-        pulse.ring.material.color.setHex(0x10b981);
+        pulse.ring.material.opacity = isNear ? 0.95 : 0.45;
+        if (lit) pulse.light.intensity = pulse.base * (isNear ? 1.4 : 0.6);
+        this.setPulseColor(pulse, 0x10b981);
       } else if (isNext) {
-        pulse.ring.material.opacity = spot === this.nearest ? 1.0 : activePulse;
-        pulse.light.intensity = pulse.base * (spot === this.nearest ? 2.0 : 1.4 + activePulse * 0.5);
-        pulse.light.color.setHex(spot.color);
-        pulse.ring.material.color.setHex(spot.color);
+        pulse.ring.material.opacity = isNear ? 1.0 : activePulse;
+        if (lit) pulse.light.intensity = pulse.base * (isNear ? 2.0 : 1.4 + activePulse * 0.5);
+        this.setPulseColor(pulse, spot.color);
       } else {
-        pulse.ring.material.opacity = spot === this.nearest ? 0.6 : 0.25;
-        pulse.light.intensity = pulse.base * (spot === this.nearest ? 0.8 : 0.35);
-        pulse.light.color.setHex(0x334155);
-        pulse.ring.material.color.setHex(0x334155);
+        pulse.ring.material.opacity = isNear ? 0.6 : 0.25;
+        if (lit) pulse.light.intensity = pulse.base * (isNear ? 0.8 : 0.35);
+        this.setPulseColor(pulse, 0x334155);
       }
-
-      if (redrawScreens && pulse.screen) this.drawAttractScreen(pulse.screen, t);
     });
+
+    this.updateScreens(t, nextRound);
+  }
+
+  /** Set the ring / light colour only when it actually changes. */
+  setPulseColor(pulse, hex) {
+    if (pulse.hex === hex) return;
+    pulse.hex = hex;
+    pulse.light.color.setHex(hex);
+    pulse.ring.material.color.setHex(hex);
   }
 
   interact() {
@@ -2273,6 +2712,9 @@ export class ArcadeRoom3D {
     else this.camo += (target - this.camo) * Math.min(1, dt * 6);
     if (!this.camoMats || !this.camoMats.length) return;
     const o = this.camo;
+    // Fully visible and already applied: nothing to do (skips ~25 material writes per frame).
+    if (this._camoSettled && o >= 0.999 && target >= 0.999) return;
+    this._camoSettled = o >= 0.999;
     const transparent = o < 0.999;
     // Blend toward the neon colour of the surface/light beneath the player.
     const surface = this.surfaceColorBeneath();
@@ -2350,9 +2792,11 @@ export class ArcadeRoom3D {
     }
     this.quality = q;
     localStorage.setItem("arcade_quality", q);
+    // Start each tier at its own resolution; adaptive scaling then tunes it live.
+    this.resScale = (RES_TIERS[q] || RES_TIERS.low).start;
+    this.resetAdaptive();
 
     if (q === "low") {
-      this.resScale = 0.70;
       this.renderer.setPixelRatio(1);
       if (this.bloomPass) this.bloomPass.enabled = false;
       (this.accentLights || []).forEach(l => { l.visible = false; });
@@ -2365,9 +2809,7 @@ export class ArcadeRoom3D {
         this.renderer.toneMapping = THREE.LinearToneMapping;
         this.renderer.shadowMap.enabled = false;
       }
-      this._physFixedHz = 60;
     } else if (q === "high") {
-      this.resScale = 1.0;
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
       if (!this.composer) this.initComposer();
       if (this.bloomPass) this.bloomPass.enabled = true;
@@ -2378,11 +2820,9 @@ export class ArcadeRoom3D {
       if (this.scene.fog) { this.scene.fog.near = 18; this.scene.fog.far = 46; }
       if (this.camera) { this.camera.far = 200; this.camera.updateProjectionMatrix(); }
       if (this.renderer) this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      this._physFixedHz = 120;
       if (this.decor) this.decor.loadStatues().catch(() => {});
     } else {
       // medium
-      this.resScale = 0.85;
       this.renderer.setPixelRatio(1);
       if (!this.composer) this.initComposer();
       if (this.bloomPass) this.bloomPass.enabled = true;
@@ -2393,7 +2833,6 @@ export class ArcadeRoom3D {
       if (this.scene.fog) { this.scene.fog.near = 18; this.scene.fog.far = 46; }
       if (this.camera) { this.camera.far = 160; this.camera.updateProjectionMatrix(); }
       if (this.renderer) this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      this._physFixedHz = 60;
       if (this.decor) this.decor.loadStatues().catch(() => {});
     }
     if (this.decor) this.decor.setQuality(q);

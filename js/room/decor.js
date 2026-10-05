@@ -21,6 +21,7 @@
 
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { mergeStatic } from "./optimize.js";
 
 export const DECOR_MODELS = {
   danceFloor: ["models/animated-dance-floor-neon-lights/source/dancefloor.glb", "models/animated-dance-floor-neon-lights/scene.gltf"],
@@ -113,6 +114,9 @@ function glowTexture() {
 }
 
 const hex = c => "#" + new THREE.Color(c).getHexString();
+const NEON_CSS = NEON.map(hex);           // pre-built CSS strings: no per-frame Color allocations
+const _m4 = new THREE.Matrix4();
+const _o3 = new THREE.Object3D();
 
 // ---------------------------------------------------------------- arena
 
@@ -263,11 +267,10 @@ export class RoomDecor {
     // 3. Glowing neon lip border
     const lipMat = glowMat(0xff2bd6, 1.2);
     const h = size / 2 + 0.05;
-    [[0, h, size + 0.2, 0.06], [0, -h, size + 0.2, 0.06], [h, 0, 0.06, size + 0.2], [-h, 0, 0.06, size + 0.2]].forEach(([x, z, w, d]) => {
-      const lip = new THREE.Mesh(new THREE.BoxGeometry(w, 0.04, d), lipMat);
-      lip.position.set(x, FLOOR_TOP - 0.01, z);
-      holder.add(lip);
-    });
+    const lipParts = [[0, h, size + 0.2, 0.06], [0, -h, size + 0.2, 0.06], [h, 0, 0.06, size + 0.2], [-h, 0, 0.06, size + 0.2]]
+      .map(([x, z, w, d]) => ({ geo: new THREE.BoxGeometry(w, 0.04, d), matrix: new THREE.Matrix4().makeTranslation(x, FLOOR_TOP - 0.01, z) }));
+    const lip = mergeStatic(lipParts, lipMat, "dance-floor-lip");   // 4 strips, one draw call
+    if (lip) holder.add(lip);
     this.floorLip = lipMat;
 
     this.group.add(holder);
@@ -276,18 +279,20 @@ export class RoomDecor {
 
   drawFloorTexture(t) {
     if (!this.floorCtx) return;
+    // The pattern only changes on the beat (2x a second): redrawing + re-uploading the
+    // 256x256 texture more often than that just burns CPU and upload bandwidth.
+    const beat = Math.floor(t * 2);
+    if (beat === this._floorBeat) return;
+    this._floorBeat = beat;
     const ctx = this.floorCtx;
     const N = 8;
     const cell = 256 / N;
-    const beat = Math.floor(t * 2);
+    ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    ctx.lineWidth = 1;
     for (let i = 0; i < N; i++) {
       for (let j = 0; j < N; j++) {
-        const colorIdx = (i + j + beat) % NEON.length;
-        const hex = "#" + new THREE.Color(NEON[colorIdx]).getHexString();
-        ctx.fillStyle = hex;
+        ctx.fillStyle = NEON_CSS[(i + j + beat) % NEON.length];
         ctx.fillRect(i * cell + 1.5, j * cell + 1.5, cell - 3, cell - 3);
-        ctx.strokeStyle = "rgba(255,255,255,0.45)";
-        ctx.lineWidth = 1;
         ctx.strokeRect(i * cell + 1.5, j * cell + 1.5, cell - 3, cell - 3);
       }
     }
@@ -296,7 +301,7 @@ export class RoomDecor {
 
   updateTiles(dt, t) {
     this._floorTick = (this._floorTick || 0) + dt;
-    if (this._floorTick >= 0.12) {
+    if (this._floorTick >= 0.1) {
       this._floorTick = 0;
       this.drawFloorTexture(t);
     }
@@ -572,25 +577,28 @@ export class RoomDecor {
     const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0x36d6cf).multiplyScalar(0.85), toneMapped: false });
     const geo = new THREE.BoxGeometry(0.42, PILLAR_H, 0.42);
     this.pillarTops = [];
+    const parts = [];
     this.pillarSpots().forEach(([x, z]) => {
-      const p = new THREE.Mesh(geo, mat);
-      p.position.set(x, PILLAR_H / 2, z);
-      this.group.add(p);
+      parts.push({ geo, matrix: new THREE.Matrix4().makeTranslation(x, PILLAR_H / 2, z) });
       this.addSolid(x, z, 0.26, 0.26, PILLAR_H);
       this.pillarTops.push(new THREE.Vector3(x, PILLAR_H - 0.4, z));
     });
+    const pillars = mergeStatic(parts, mat, "pillars");        // 8 pillars, one draw call
+    if (pillars) this.group.add(pillars);
   }
 
   buildCeilingStrips() {
     const W = this.walls;
     const x0 = W.xMin + 1.2, x1 = W.xMax - 1.2, z0 = W.zMin + 1.2, z1 = W.zMax - 1.2;
-    const pink = glowMat(0xff2bd6, 1.3), cyan = glowMat(0x5ff3ff, 1.2);
-    const strip = (a, b, mat) => {
+    const pink = new THREE.Color(0xff2bd6).multiplyScalar(1.3), cyan = new THREE.Color(0x5ff3ff).multiplyScalar(1.2);
+    const parts = [];
+    const strip = (a, b, color) => {
       const len = a.distanceTo(b);
-      const m = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, len), mat);
-      m.position.copy(a).add(b).multiplyScalar(0.5);
-      m.lookAt(b);
-      this.group.add(m);
+      _o3.position.copy(a).add(b).multiplyScalar(0.5);
+      _o3.up.set(0, 1, 0);
+      _o3.lookAt(b);
+      _o3.updateMatrix();
+      parts.push({ geo: new THREE.BoxGeometry(0.14, 0.08, len), matrix: _o3.matrix.clone(), color });
     };
     const V = (x, z, dy = 0) => new THREE.Vector3(x, STRIP_Y + dy, z);
     // Outer frame
@@ -602,6 +610,9 @@ export class RoomDecor {
     strip(V(x0, z0 + 1.2, -0.25), V(x1, z0 + 1.2, -0.25), cyan);
     strip(V(x0 + 2, (z0 + z1) / 2, 0.2), V(x1 - 2, (z0 + z1) / 2, 0.2), pink);
     strip(V(x0, z1 - 1.2, -0.25), V(x1, z1 - 1.2, -0.25), cyan);
+    // All seven neon strips share one vertex-coloured material: a single draw call.
+    const merged = mergeStatic(parts, new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }), "ceiling-strips");
+    if (merged) this.group.add(merged);
   }
 
   // -------------------------------------------------------------- string lights
@@ -614,6 +625,7 @@ export class RoomDecor {
     const pairs = [[2, 4], [5, 3], [0, 4], [1, 5], [0, 2], [1, 3], [6, 7]];
     const wireMat = new THREE.MeshStandardMaterial({ color: 0x1a2a22, roughness: 0.8 });
     const bulbPos = [];
+    const wireParts = [];
     pairs.forEach(([a, b]) => {
       const A = P[a], B = P[b];
       const len = A.distanceTo(B);
@@ -627,12 +639,14 @@ export class RoomDecor {
         pts.push(p);
       }
       const curve = new THREE.CatmullRomCurve3(pts);
-      this.group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 0.018, 5), wireMat));
+      wireParts.push({ geo: new THREE.TubeGeometry(curve, 36, 0.02, 4) });
       const count = Math.floor(len / 0.7);
       for (let k = 1; k < count; k++) bulbPos.push(curve.getPoint(k / count).add(new THREE.Vector3(0, -0.07, 0)));
     });
+    const wires = mergeStatic(wireParts, wireMat, "string-wires");   // 7 wires, one draw call
+    if (wires) this.group.add(wires);
     const COLORS = [0xff2030, 0x20ff60, 0x3a7bff, 0xffffff, 0xffd020, 0xff40d0];
-    const bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.075, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), bulbPos.length);
+    const bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.075, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), bulbPos.length);
     const m4 = new THREE.Matrix4();
     const halo = new Float32Array(bulbPos.length * 3);
     const haloCol = new Float32Array(bulbPos.length * 3);
@@ -679,23 +693,18 @@ export class RoomDecor {
   // -------------------------------------------------------------- floor art
 
   buildFloorMarkings() {
-    const g = new THREE.Group();
-    g.name = "floor-markings";
     const y = 0.015;
-    const ring = (x, z, r, color, arc = Math.PI * 2, rot = 0, w = 0.22) => {
-      const m = new THREE.Mesh(new THREE.RingGeometry(r - w / 2, r + w / 2, 72, 1, rot, arc), glowMat(color, 0.75));
-      m.rotation.x = -Math.PI / 2;
-      m.position.set(x, y, z);
-      g.add(m);
+    const parts = [];
+    const place = (geo, x, py, z, rotZ, color, strength) => {
+      _o3.position.set(x, py, z);
+      _o3.rotation.set(-Math.PI / 2, 0, rotZ);
+      _o3.updateMatrix();
+      parts.push({ geo, matrix: _o3.matrix.clone(), color: new THREE.Color(color).multiplyScalar(strength) });
     };
-    const line = (x0, z0, x1, z1, color, w = 0.12) => {
-      const len = Math.hypot(x1 - x0, z1 - z0);
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(len, w), glowMat(color, 0.7));
-      m.rotation.x = -Math.PI / 2;
-      m.rotation.z = -Math.atan2(z1 - z0, x1 - x0);
-      m.position.set((x0 + x1) / 2, y + 0.001, (z0 + z1) / 2);
-      g.add(m);
-    };
+    const ring = (x, z, r, color, arc = Math.PI * 2, rot = 0, w = 0.22) =>
+      place(new THREE.RingGeometry(r - w / 2, r + w / 2, 48, 1, rot, arc), x, y, z, 0, color, 0.75);
+    const line = (x0, z0, x1, z1, color, w = 0.12) =>
+      place(new THREE.PlaneGeometry(Math.hypot(x1 - x0, z1 - z0), w), (x0 + x1) / 2, y + 0.001, (z0 + z1) / 2, -Math.atan2(z1 - z0, x1 - x0), color, 0.7);
     const h = FLOOR_SIZE / 2;
     const P = (x, z) => this.at(x, z);
     // Centre court arc in front of the dance floor
@@ -712,7 +721,9 @@ export class RoomDecor {
     line(ax + 2.1, az, -h - 0.3, 1.2, 0x2dd4bf);
     line(bx - 2.1, bz, h + 0.3, 1.2, 0xa855f7);
     line(-h - 0.3, h + 0.3, h + 0.3, h + 0.3, 0xffe600, 0.1);
-    this.group.add(g);
+    // Every ring and line shares one vertex-coloured material: a single draw call.
+    const marks = mergeStatic(parts, new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }), "floor-markings");
+    if (marks) this.group.add(marks);
   }
 
   buildOrbs() {
@@ -732,9 +743,11 @@ export class RoomDecor {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
-    // Simple unlit points — no heavy transparent overlapping sprites
+    // 24 unlit points with a soft round glow texture: cheap, and they read as glowing orbs
+    // (without the texture they render as hard squares).
     this.orbs = new THREE.Points(geo, new THREE.PointsMaterial({
-      size: 0.28, vertexColors: true, depthWrite: false, toneMapped: false
+      size: 0.45, map: this.glowTex, vertexColors: true, transparent: true, opacity: 0.9,
+      depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false
     }));
     this.group.add(this.orbs);
   }
@@ -749,24 +762,31 @@ export class RoomDecor {
   // -------------------------------------------------------------- statues
 
   buildPedestals() {
+    const discParts = [];
     this.statueSpots = STATUES.map(cfg => {
       const [x, z] = this.at(...cfg.pos);
       const g = new THREE.Group();
       g.position.set(x, 0, z);
       const mat = glowMat(cfg.ring, 1.2);
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.045, 10, 64), mat);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.045, 6, 40), mat);
       ring.rotation.x = -Math.PI / 2;
       ring.position.y = 0.05;
       g.add(ring);
-      const disc = new THREE.Mesh(new THREE.CircleGeometry(0.85, 48), additive(cfg.ring, 0.14));
-      disc.rotation.x = -Math.PI / 2;
-      disc.position.y = 0.02;
-      g.add(disc);
+      // The six glow discs share one additive, vertex-coloured mesh (one draw call).
+      _o3.position.set(x, 0.02, z);
+      _o3.rotation.set(-Math.PI / 2, 0, 0);
+      _o3.updateMatrix();
+      discParts.push({ geo: new THREE.CircleGeometry(0.85, 32), matrix: _o3.matrix.clone(), color: new THREE.Color(cfg.ring) });
       this.group.add(g);
       this.addSolid(x, z, 0.6, 0.6, 2.4);
       this.pulses.push({ mat, base: new THREE.Color(cfg.ring).multiplyScalar(1.2), phase: Math.random() * 6 });
       return { cfg, holder: g };
     });
+    const discs = mergeStatic(discParts, new THREE.MeshBasicMaterial({
+      vertexColors: true, transparent: true, opacity: 0.14, depthWrite: false,
+      blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false
+    }), "pedestal-glow");
+    if (discs) this.group.add(discs);
   }
 
   /** Statues load in background with cheap materials (MeshLambert) and zero reflections. */
@@ -821,12 +841,13 @@ export class RoomDecor {
   // -------------------------------------------------------------- per frame
 
   update(dt, t) {
-    if (this._quality !== "low") {
-      this.mixers.forEach(m => m.update(dt));
-      this.updateDisco(dt, t);
-      this.updateStrings(dt, t);
-      this.updateOrbs(t);
-    }
+    // Skeletal statue animation is the only expensive part: Low freezes it. Everything
+    // else (disco ball, twinkling bulbs, floating orbs, dance floor) is cheap and stays
+    // alive on every tier so Low still looks like a party, not a still image.
+    if (this._quality !== "low") this.mixers.forEach(m => m.update(dt));
+    this.updateDisco(dt, t);
+    this.updateStrings(dt, t);
+    this.updateOrbs(t);
     this.updateTiles(dt, t);
     this.pulses.forEach(p => p.mat.color.copy(p.base).multiplyScalar(0.7 + 0.3 * Math.sin(t * 2.4 + p.phase)));
     if (this.floorLip) this.floorLip.color.setHex(NEON[Math.floor(t * 1.2) % NEON.length]);
@@ -839,7 +860,7 @@ export class RoomDecor {
     this.lights.forEach(l => { l.visible = isHigh; });
     if (this.beams) this.beams.visible = !isLow;
     if (this.specks) this.specks.visible = isHigh;
-    if (this.orbs) this.orbs.visible = !isLow;
+    if (this.orbs) this.orbs.visible = true;
     if (this.strings && this.strings.halos) this.strings.halos.visible = !isLow;
   }
 }

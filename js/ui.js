@@ -140,7 +140,7 @@ export class ArcadeUIController {
     if (passBtn) passBtn.style.display = "none";
   }
 
-  showAnswerReveal({ isCorrect, pointsEarned, resultType, headline, explanation, onNext }) {
+  showAnswerReveal({ isCorrect, pointsEarned, resultType, headline, explanation, onNext, nextLabel = "NEXT QUESTION →" }) {
     const arena = document.getElementById("gameArena");
     if (!arena) return;
 
@@ -190,7 +190,7 @@ export class ArcadeUIController {
 
       <div class="reveal-actions">
         <button type="button" class="btn-primary-gaming" id="btnNextQuestion">
-          NEXT QUESTION →
+          ${nextLabel}
         </button>
       </div>
     `;
@@ -204,6 +204,16 @@ export class ArcadeUIController {
   }
 
   renderRoundBriefing(roundNumber, onStartRound) {
+    // Illustrated start screens (assets/intro-*.jpg), one per game. `hit` is the
+    // LET'S START button inside the artwork, in % of the image (left/top/width/height),
+    // so the picture itself is the interactive button.
+    const INTRO_SCREENS = {
+      1: { img: "assets/intro-scale-wars.jpg", hit: [42.8, 82.5, 19.4, 12.6] },
+      2: { img: "assets/intro-ctrl-alt-guess.jpg", hit: [37.8, 84.1, 25.7, 14.4] },
+      3: { img: "assets/intro-tech-meme-battle.jpg", hit: [38.6, 85.1, 27.4, 11.7] },
+      4: { img: "assets/intro-blackout-build.jpg", hit: [35.0, 81.5, 33.8, 16.6] },
+      5: { img: "assets/intro-retro-blast.jpg", hit: [38.0, 86.4, 29.0, 12.4] }
+    };
     const BRIEFINGS = {
       1: {
         icon: "📐",
@@ -291,7 +301,8 @@ export class ArcadeUIController {
       return;
     }
 
-    arena.innerHTML = `
+    const intro = INTRO_SCREENS[roundNumber];
+    const codedCard = () => `
       <div class="cyber-modal between-round-card round-briefing-card">
         <div class="modal-cyber-glow"></div>
         <div class="between-header">
@@ -317,22 +328,51 @@ export class ArcadeUIController {
       </div>
     `;
 
-    const startBtn = document.getElementById("btnStartRound");
-    if (startBtn) {
+    const wireStart = () => {
+      const startBtn = document.getElementById("btnStartRound");
+      if (!startBtn) return;
+      let started = false;
       const launch = () => {
+        if (started) return;
+        started = true;
+        window.removeEventListener("keydown", onKey);
         startBtn.disabled = true;
         if (onStartRound) onStartRound();
       };
-      startBtn.addEventListener("click", launch);
-      startBtn.focus();
       const onKey = (e) => {
+        // The screen was replaced (round left, game started elsewhere): stop listening.
+        if (!document.body.contains(startBtn)) { window.removeEventListener("keydown", onKey); return; }
+        if (e.repeat || (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) return;
         if (e.key === "Enter" || e.key === " ") {
-          window.removeEventListener("keydown", onKey);
+          e.preventDefault();
           launch();
         }
       };
-      window.addEventListener("keydown", onKey, { once: true });
+      startBtn.addEventListener("click", launch);
+      startBtn.focus({ preventScroll: true });
+      window.addEventListener("keydown", onKey);
+    };
+
+    if (intro) {
+      const [l, t, w, h] = intro.hit;
+      arena.innerHTML = `
+        <div class="round-intro-screen" data-round="${roundNumber}">
+          <img class="round-intro-img" src="${intro.img}" alt="${b.name} - ${b.tagline}" draggable="false">
+          <ul class="round-intro-sr">${b.rules.map(r => `<li>${r}</li>`).join("")}</ul>
+          <button type="button" class="round-intro-start" id="btnStartRound"
+            style="left:${l}%;top:${t}%;width:${w}%;height:${h}%"
+            aria-label="Let's start ${b.name}"></button>
+        </div>
+      `;
+      const img = arena.querySelector(".round-intro-img");
+      // Artwork missing or unreadable: fall back to the text briefing so the round can still start.
+      if (img) img.addEventListener("error", () => { arena.innerHTML = codedCard(); wireStart(); }, { once: true });
+      wireStart();
+      return;
     }
+
+    arena.innerHTML = codedCard();
+    wireStart();
   }
 
   showPracticeReveal({ headline, correct, explanation, onNext, nextLabel }) {

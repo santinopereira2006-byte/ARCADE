@@ -20,6 +20,7 @@ export class CollisionWorld {
     this.debugGroup = null;
     this._ray = new THREE.Ray();
     this._hit = new THREE.Vector3();
+    this._dir = new THREE.Vector3();   // scratch: no per-frame allocation in the camera wall test
   }
 
   addBox(box, label = "box") {
@@ -182,7 +183,7 @@ export class CollisionWorld {
    * Used to pull the third-person camera in front of walls.
    */
   distanceToWall(origin, target, margin = 0.35) {
-    const dir = target.clone().sub(origin);
+    const dir = this._dir.copy(target).sub(origin);
     const full = dir.length();
     if (full < 1e-4) return 0;
     dir.divideScalar(full);

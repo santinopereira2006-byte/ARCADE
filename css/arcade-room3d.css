@@ -81,6 +81,87 @@ body.room3d-mode #screen-room3d {
   cursor: grabbing;
 }
 
+/* The home-screen particle canvas sits behind the room: stop compositing it. */
+body.room3d-mode .antigravity-canvas {
+  display: none !important;
+}
+
+/* Soft vignette: frames the scene and hides the edges of the low-res render.
+   One static layer, no filters, so it costs next to nothing. */
+.room3d-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 46%, rgba(2, 3, 10, 0) 58%, rgba(2, 3, 10, 0.5) 100%);
+}
+
+/* ---------- FPS counter (press F to toggle) ---------- */
+
+.room3d-fps {
+  --fps-color: #39ff14;
+  position: absolute;
+  right: 22px;
+  bottom: 20px;
+  z-index: 6;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  background: rgba(4, 7, 16, 0.7);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: rgba(206, 226, 255, 0.78);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+}
+
+.room3d-fps[hidden] {
+  display: none;
+}
+
+.room3d-fps[data-tier="ok"] {
+  --fps-color: #ffe600;
+}
+
+.room3d-fps[data-tier="bad"] {
+  --fps-color: #ff4d4d;
+}
+
+.room3d-fps-val {
+  min-width: 2.1ch;
+  text-align: right;
+  font-family: "Orbitron", "JetBrains Mono", monospace;
+  font-weight: 900;
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--fps-color);
+  text-shadow: 0 0 8px var(--fps-color);
+}
+
+.room3d-fps-unit {
+  font-weight: 700;
+  color: var(--fps-color);
+}
+
+.room3d-fps-ms {
+  min-width: 6ch;
+  opacity: 0.75;
+}
+
+.room3d-fps-res {
+  color: #ffb347;
+}
+
+.room3d-fps-res:empty {
+  display: none;
+}
+
 /* ---------- loading overlay ---------- */
 
 /* ---------- Cinematic Mecha World Warp Loading Screen ---------- */
@@ -190,10 +271,8 @@ body.room3d-mode #screen-room3d {
   width: min(620px, 92vw);
   padding: 34px 38px;
   border-radius: 24px;
-  background: rgba(8, 11, 22, 0.75);
+  background: rgba(8, 11, 22, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   display: flex;
   flex-direction: column;
@@ -626,8 +705,7 @@ body.room3d-mode #screen-room3d {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(4, 7, 16, 0.82);
-  backdrop-filter: blur(6px);
+  background: rgba(4, 7, 16, 0.88);
 }
 
 .room3d-pause[hidden] {

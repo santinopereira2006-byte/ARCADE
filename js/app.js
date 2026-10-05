@@ -12,7 +12,7 @@ import { AuthManager } from "./auth.js";
 
 import { ROUND1_SCALE_QUESTIONS } from "./data/round1-scale.js";
 import { ROUND2_TECH_QUESTIONS } from "./data/round2-ctrl-alt.js";
-import { ROUND3_MEME_TRIVIA, MEME_TEMPLATES } from "./data/round3-memes.js";
+import { ROUND3_MEME_TRIVIA, MEME_TEMPLATES, MEME_CORRECT_TEMPLATE_ID, MEME_CREATION_POINTS } from "./data/round3-memes.js";
 import { BLACKOUT_LEVELS, ROUND4_CONFIG } from "./data/round4-blackout.js";
 
 import { ScaleWarsRenderer } from "./games/scale-wars.js";
@@ -1168,16 +1168,17 @@ class ArcadeApp {
     state.isAnswerLocked = false;
     this.ui.updateHUD(6, 6);
 
+    // Fresh start every time: the player has to choose the template themselves.
+    this.currentMemeTemplateId = null;
+
     const arena = document.getElementById("gameArena");
     arena.innerHTML = MemeBattleRenderer.renderMemeStudio(
       this.currentMemePromptIdx,
       this.currentMemeTemplateId
     );
 
-    const topInput = document.getElementById("topTextInput");
-    const bottomInput = document.getElementById("bottomTextInput");
-    const rendTop = document.getElementById("renderedTopText");
-    const rendBottom = document.getElementById("renderedBottomText");
+    // The captions are fixed and read-only; the picture is shown without text.
+    const submitMemeBtn = document.getElementById("btnSubmitMeme");
     const canvasArt = document.getElementById("memeCanvasArt");
     const tmplBadge = document.getElementById("tmplBadge");
     const canvasBox = document.getElementById("memeCanvasBox");
@@ -1195,42 +1196,44 @@ class ArcadeApp {
             : MemeBattleRenderer.getTemplateSVG(tmpl.id);
           tmplBadge.textContent = tmpl.name.toUpperCase();
           canvasBox.style.borderColor = tmpl.accentColor;
-          if (!topInput.value) rendTop.textContent = tmpl.topPlaceholder;
-          if (!bottomInput.value) rendBottom.textContent = tmpl.bottomPlaceholder;
+          if (submitMemeBtn) submitMemeBtn.disabled = false;
         }
       });
     });
 
-    // Real-time live text preview
-    if (topInput && rendTop) {
-      topInput.addEventListener("input", (e) => {
-        const val = e.target.value.trim();
-        const tmpl = MEME_TEMPLATES.find(t => t.id === this.currentMemeTemplateId);
-        rendTop.textContent = val || tmpl?.topPlaceholder || "TOP TEXT";
-      });
-    }
-
-    if (bottomInput && rendBottom) {
-      bottomInput.addEventListener("input", (e) => {
-        const val = e.target.value.trim();
-        const tmpl = MEME_TEMPLATES.find(t => t.id === this.currentMemeTemplateId);
-        rendBottom.textContent = val || tmpl?.bottomPlaceholder || "BOTTOM TEXT";
-      });
-    }
-
-    // Submit meme
-    const submitMemeBtn = document.getElementById("btnSubmitMeme");
+    // Submit: only the Drake template is correct (75 pts); any other template scores 0.
     if (submitMemeBtn) {
       submitMemeBtn.addEventListener("click", () => {
+        if (state.isAnswerLocked || !this.currentMemeTemplateId) return;
         const tmpl = MEME_TEMPLATES.find(t => t.id === this.currentMemeTemplateId);
+        if (!tmpl) return;
         const memePayload = {
-          templateId: this.currentMemeTemplateId,
-          topText: topInput.value.trim() || tmpl.topPlaceholder,
-          bottomText: bottomInput.value.trim() || tmpl.bottomPlaceholder
+          templateId: tmpl.id,
+          topText: tmpl.topPlaceholder,
+          bottomText: tmpl.bottomPlaceholder
         };
+        const isCorrect = tmpl.id === MEME_CORRECT_TEMPLATE_ID;
+        const pts = isCorrect ? MEME_CREATION_POINTS : 0;
+        const correctTmpl = MEME_TEMPLATES.find(t => t.id === MEME_CORRECT_TEMPLATE_ID);
 
         state.round3CreatedMeme = memePayload;
-        this.showMemeJudgingModal(memePayload);
+        state.round3CreationScore = pts;
+        state.recordResult(isCorrect ? "correct" : "incorrect", pts, 3);
+        state.isAnswerLocked = true;
+        this.ui.lockInputs();
+        this.ui.updateScore && this.ui.updateScore();
+
+        this.ui.showAnswerReveal({
+          isCorrect,
+          pointsEarned: pts,
+          resultType: isCorrect ? "correct" : "incorrect",
+          headline: isCorrect ? `CORRECT TEMPLATE! +${pts} POINTS` : "WRONG TEMPLATE — 0 POINTS",
+          explanation: isCorrect
+            ? `${tmpl.name} is the right match: the captions are a disapprove / approve pair — reject the tedious thing, approve the reckless shortcut.`
+            : `${tmpl.name} doesn't fit these captions. They are a disapprove / approve pair, which is the ${correctTmpl ? correctTmpl.name : "Drake"} template.`,
+          nextLabel: "FINISH ROUND 3 →",
+          onNext: () => this.completeRound(3)
+        });
       });
     }
   }

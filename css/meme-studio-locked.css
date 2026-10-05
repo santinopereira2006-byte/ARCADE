@@ -1,0 +1,55 @@
+/* ==========================================================================
+   MEME STUDIO - fixed captions
+   The top / bottom captions are pre-written for each template and cannot be
+   edited; the preview shows the template picture only.
+   ========================================================================== */
+
+.arcade-text-input.is-locked,
+.arcade-text-input.is-locked:focus {
+  cursor: not-allowed;
+  color: rgba(255, 255, 255, 0.92);
+  background-color: rgba(5, 8, 16, 0.65);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: none !important;
+  padding-right: 44px;
+  text-overflow: ellipsis;
+  /* small padlock on the right edge */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='11' width='16' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+
+/* No caption lines any more: let the picture use the freed space. */
+.meme-canvas-box {
+  justify-content: center;
+}
+
+.meme-canvas-box .meme-template-img {
+  max-height: 340px;
+}
+
+/* Template picking: nothing is selected at first and only one template is correct. */
+.studio-pick-hint {
+  margin: 2px 0 10px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.meme-pick-placeholder {
+  width: 100%;
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  font-family: var(--font-tech, 'JetBrains Mono', monospace);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: rgba(148, 163, 184, 0.7);
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+}

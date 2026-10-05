@@ -4,7 +4,7 @@
  * Phase B: Interactive Meme Creation Studio & Organizer Rubric (75 pts)
  */
 
-import { MEME_TEMPLATES, MEME_CREATOR_PROMPTS } from "../data/round3-memes.js";
+import { MEME_TEMPLATES, MEME_CREATOR_PROMPTS, FIXED_TOP_CAPTION, FIXED_BOTTOM_CAPTION, MEME_CREATION_POINTS } from "../data/round3-memes.js";
 
 export class MemeBattleRenderer {
   // Phase A: Trivia / Punchline Matching
@@ -43,9 +43,10 @@ export class MemeBattleRenderer {
   }
 
   // Phase B: Meme Creation Studio
-  static renderMemeStudio(selectedPromptIndex = 0, selectedTemplateId = "drake") {
+  static renderMemeStudio(selectedPromptIndex = 0, selectedTemplateId = null) {
     const prompt = MEME_CREATOR_PROMPTS[selectedPromptIndex] || MEME_CREATOR_PROMPTS[0];
-    const template = MEME_TEMPLATES.find(t => t.id === selectedTemplateId) || MEME_TEMPLATES[0];
+    // Nothing is pre-selected: the player has to pick the template these captions belong to.
+    const template = MEME_TEMPLATES.find(t => t.id === selectedTemplateId) || null;
 
     return `
       <div class="meme-studio-container">
@@ -60,9 +61,10 @@ export class MemeBattleRenderer {
           <div class="studio-controls-card">
             <div class="control-group">
               <label class="studio-lbl">SELECT MEME TEMPLATE:</label>
+              <p class="studio-pick-hint">Pick the template these captions belong to — only one is correct (${MEME_CREATION_POINTS} PTS).</p>
               <div class="template-selector-grid">
                 ${MEME_TEMPLATES.map(tmpl => `
-                  <button type="button" class="btn-template-select ${tmpl.id === template.id ? 'active' : ''}" data-template="${tmpl.id}">
+                  <button type="button" class="btn-template-select ${template && tmpl.id === template.id ? 'active' : ''}" data-template="${tmpl.id}">
                     <span class="tmpl-swatch" style="background: ${tmpl.accentColor}"></span>
                     <span class="tmpl-name">${tmpl.name}</span>
                   </button>
@@ -72,16 +74,16 @@ export class MemeBattleRenderer {
 
             <div class="control-group">
               <label class="studio-lbl" for="topTextInput">TOP CAPTION / SETUP:</label>
-              <input type="text" id="topTextInput" class="arcade-text-input" placeholder="${template.topPlaceholder}" maxlength="60" />
+              <input type="text" id="topTextInput" class="arcade-text-input is-locked" value="${FIXED_TOP_CAPTION}" readonly aria-readonly="true" maxlength="60" />
             </div>
 
             <div class="control-group">
               <label class="studio-lbl" for="bottomTextInput">BOTTOM CAPTION / PUNCHLINE:</label>
-              <input type="text" id="bottomTextInput" class="arcade-text-input" placeholder="${template.bottomPlaceholder}" maxlength="60" />
+              <input type="text" id="bottomTextInput" class="arcade-text-input is-locked" value="${FIXED_BOTTOM_CAPTION}" readonly aria-readonly="true" maxlength="60" />
             </div>
 
             <div class="studio-actions-bar">
-              <button type="button" class="btn-primary-gaming" id="btnSubmitMeme">
+              <button type="button" class="btn-primary-gaming" id="btnSubmitMeme" ${template ? '' : 'disabled'}>
                 🚀 SUBMIT MEME FOR JUDGING
               </button>
             </div>
@@ -93,17 +95,17 @@ export class MemeBattleRenderer {
           <div class="studio-preview-card">
             <div class="preview-header">
               <span class="p-title">LIVE RENDER PREVIEW</span>
-              <span class="p-badge" id="tmplBadge">${template.name.toUpperCase()}</span>
+              <span class="p-badge" id="tmplBadge">${template ? template.name.toUpperCase() : 'NO TEMPLATE SELECTED'}</span>
             </div>
             
             <div class="meme-canvas-stage" id="memeCanvasStage">
               <!-- Rendered dynamically -->
-              <div class="meme-canvas-box" id="memeCanvasBox" style="border-color: ${template.accentColor}">
-                <div class="meme-text top-caption" id="renderedTopText">${template.topPlaceholder}</div>
+              <div class="meme-canvas-box" id="memeCanvasBox" ${template ? `style="border-color: ${template.accentColor}"` : ''}>
                 <div class="meme-canvas-art" id="memeCanvasArt">
-                  ${template.imgSrc ? `<img src="${template.imgSrc}" class="meme-template-img" alt="${template.name}" />` : this.getTemplateSVG(template.id)}
+                  ${template
+                    ? (template.imgSrc ? `<img src="${template.imgSrc}" class="meme-template-img" alt="${template.name}" />` : this.getTemplateSVG(template.id))
+                    : '<div class="meme-pick-placeholder">SELECT A TEMPLATE TO PREVIEW IT</div>'}
                 </div>
-                <div class="meme-text bottom-caption" id="renderedBottomText">${template.bottomPlaceholder}</div>
               </div>
             </div>
           </div>

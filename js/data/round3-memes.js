@@ -187,37 +187,44 @@ export const MEME_CREATOR_PROMPTS = [
   }
 ];
 
+// Every template shows the same fixed captions: they are a "disapprove / approve"
+// pair, so only the Drake template is the right choice for them.
+export const FIXED_TOP_CAPTION = "Writing 50 lines of unit tests";
+export const FIXED_BOTTOM_CAPTION = "Testing directly in production";
+export const MEME_CORRECT_TEMPLATE_ID = "drake";   // the only template that earns points
+export const MEME_CREATION_POINTS = 75;            // awarded for the correct template, 0 for any other
+
 export const MEME_TEMPLATES = [
   {
     id: "drake",
     name: "Drake Disapprove / Approve",
     imgSrc: "assets/drake.jpg",
-    topPlaceholder: "Writing 50 lines of unit tests",
-    bottomPlaceholder: "Testing directly in production",
+    topPlaceholder: FIXED_TOP_CAPTION,
+    bottomPlaceholder: FIXED_BOTTOM_CAPTION,
     accentColor: "#f59e0b"
   },
   {
     id: "dicaprio",
     name: "Leonardo DiCaprio Pointing",
     imgSrc: "assets/dicaprio.jpg",
-    topPlaceholder: "Me watching the junior dev",
-    bottomPlaceholder: "Fixing a bug by deleting the test suite",
+    topPlaceholder: FIXED_TOP_CAPTION,
+    bottomPlaceholder: FIXED_BOTTOM_CAPTION,
     accentColor: "#38bdf8"
   },
   {
     id: "button",
     name: "Two Buttons (Daily Struggle)",
     imgSrc: "assets/button.jpg",
-    topPlaceholder: "Fix technical debt properly",
-    bottomPlaceholder: "Add another // TODO comment",
+    topPlaceholder: FIXED_TOP_CAPTION,
+    bottomPlaceholder: FIXED_BOTTOM_CAPTION,
     accentColor: "#ef4444"
   },
   {
     id: "boyfriend",
     name: "Distracted Boyfriend",
     imgSrc: "assets/boyfriend.jpg",
-    topPlaceholder: "A shiny new JavaScript framework",
-    bottomPlaceholder: "The stable project due in 2 days",
+    topPlaceholder: FIXED_TOP_CAPTION,
+    bottomPlaceholder: FIXED_BOTTOM_CAPTION,
     accentColor: "#ec4899"
   }
 ];
